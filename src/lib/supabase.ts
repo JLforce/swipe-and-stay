@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 import "react-native-url-polyfill/auto";
+import type { Database } from "../types/database";
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -14,7 +15,7 @@ if (!url || !anonKey) {
 // true while Expo Router renders the web build on Node (no window there)
 const isServer = typeof window === "undefined";
 
-export const supabase = createClient(url, anonKey, {
+export const supabase = createClient<Database>(url, anonKey, {
   auth: {
     storage: isServer ? undefined : AsyncStorage, // keeps the user signed in between launches
     autoRefreshToken: !isServer,

@@ -1,20 +1,27 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import { useColorScheme } from "react-native";
-
 import "../global.css";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Toast } from "../components/Toast";
+import { colors } from "../constants/brand";
+import { AppProvider } from "../lib/store";
 
-import { AnimatedSplashOverlay } from "@/components/animated-icon";
-import AppTabs from "@/components/app-tabs";
-
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <AppProvider>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+            <Stack.Screen name="listing/[id]" options={{ presentation: "modal" }} />
+            <Stack.Screen name="match/[id]" options={{ presentation: "modal" }} />
+            <Stack.Screen name="notifications" options={{ presentation: "modal" }} />
+            <Stack.Screen name="preferences" options={{ presentation: "modal" }} />
+          </Stack>
+          <Toast />
+        </View>
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }

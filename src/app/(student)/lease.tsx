@@ -4,6 +4,7 @@ import { Btn, Card, Icon, SectionTitle } from "../../components/kit";
 import { colors } from "../../constants/brand";
 import { SAMPLE_LEASE_TEXT, type LeaseResult } from "../../data/mockData";
 import { submitLeaseReview } from "../../lib/mockApi";
+import { useApp } from "../../lib/store";
 
 function Block({ title, body }: { title: string; body: string }) {
   return (
@@ -15,6 +16,7 @@ function Block({ title, body }: { title: string; body: string }) {
 }
 
 export default function Lease() {
+  const { notify } = useApp();
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<LeaseResult | null>(null);
@@ -26,6 +28,11 @@ export default function Lease() {
     setResult(null);
     try {
       setResult(await submitLeaseReview(text));
+      notify({
+        kind: "lease",
+        title: "Lease summary ready",
+        body: "Your plain-language lease summary is ready to review. It is informational, not legal advice.",
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not analyze this lease. Please try again.");
     } finally {

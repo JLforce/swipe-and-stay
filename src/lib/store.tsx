@@ -9,12 +9,21 @@ import {
 } from "../data/mockData";
 import {
   DEFAULT_WEIGHTS,
+  FACTORS,
   factorScores,
   matchScore,
   updateWeights,
+  type Factor,
   type Prefs,
   type Weights,
 } from "./matching";
+
+const FACTOR_NAME: Record<Factor, string> = {
+  price: "price",
+  distance: "distance",
+  amenities: "amenities",
+  type: "housing type",
+};
 
 export interface Swipe {
   listingId: string;
@@ -53,6 +62,7 @@ interface AppState {
   upsertListing: (l: Listing) => void;
   toggleActive: (id: string) => void;
   markAllRead: () => void;
+  notify: (n: Omit<AppNotification, "id" | "time" | "read">) => void;
   flash: (msg: string) => void;
 }
 
@@ -88,11 +98,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const swipe = useCallback(
     (l: Listing, dir: "left" | "right") => {
+      const nextWeights = updateWeights(weights, factorScores(l, prefs), dir);
+      const count = swipes.length + 1;
       setSwipes((s) => [...s, { listingId: l.id, direction: dir, at: Date.now() }]);
-      setWeights((w) => updateWeights(w, factorScores(l, prefs), dir));
+      setWeights(nextWeights);
       if (dir === "right") setLikedIds((ids) => [l.id, ...ids.filter((x) => x !== l.id)]);
+      // Every 5th swipe, tell the student what the matcher has learned.
+      if (count % 5 === 0) {
+        const top = FACTORS.reduce((a, b) => (nextWeights[b] > nextWeights[a] ? b : a));
+        pushNote({
+          kind: "rerank",
+          title: "Re-ranking complete",
+          body: `After your last 5 swipes, ${FACTOR_NAME[top]} matters most to you (${Math.round(nextWeights[top] * 100)}%).`,
+        });
+      }
     },
-    [prefs],
+    [prefs, weights, swipes.length, pushNote],
   );
 
   const undoSwipe = useCallback(() => {
@@ -155,6 +176,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       },
       markAllRead: () => setNotifications((cur) => cur.map((n) => ({ ...n, read: true }))),
+      notify: pushNote,
       flash,
     }),
     [account, onboarded, prefs, weights, listings, swipes, likedIds, notifications, toast, swipe, undoSwipe, flash, pushNote],

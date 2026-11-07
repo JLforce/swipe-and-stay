@@ -199,7 +199,7 @@ export const BASE_LIKES: Record<string, number> = { l1: 212, l3: 301, l4: 120, l
 
 export interface AppNotification {
   id: string;
-  kind: "match" | "deactivated" | "info";
+  kind: "match" | "deactivated" | "rerank" | "lease" | "info";
   title: string;
   body: string;
   time: string;
@@ -209,11 +209,35 @@ export interface AppNotification {
 export const INITIAL_NOTIFICATIONS: AppNotification[] = [
   {
     id: "n1",
-    kind: "info",
-    title: "Welcome to Swipe & Stay",
-    body: "Swipe right on places you like. Your deck re-ranks after every swipe.",
-    time: "Just now",
+    kind: "match",
+    title: "New 96% match near UP Cebu",
+    body: "Casa Verde Boarding House moved to the top of your deck after your last 5 swipes.",
+    time: "2 min ago",
     read: false,
+  },
+  {
+    id: "n2",
+    kind: "deactivated",
+    title: "A saved listing is no longer available",
+    body: "Talamban Co-Living Pod was deactivated by the admin. It was removed from your deck.",
+    time: "1 hr ago",
+    read: false,
+  },
+  {
+    id: "n3",
+    kind: "rerank",
+    title: "Re-ranking complete",
+    body: "You liked 3 walkable places. Distance now counts for more in your matches.",
+    time: "Yesterday",
+    read: true,
+  },
+  {
+    id: "n4",
+    kind: "lease",
+    title: "Lease summary ready",
+    body: "A plain-language summary for Casa Verde is ready to review.",
+    time: "Yesterday",
+    read: true,
   },
 ];
 

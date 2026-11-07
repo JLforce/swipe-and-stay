@@ -26,6 +26,7 @@ export default function StudentLayout() {
       }}
     >
       <Tabs.Screen name="discover" options={{ title: "Discover", tabBarIcon: tabIcon("compass", "compass-outline") }} />
+      <Tabs.Screen name="search" options={{ title: "Search", tabBarIcon: tabIcon("search", "search-outline") }} />
       <Tabs.Screen name="saved" options={{ title: "Saved", tabBarIcon: tabIcon("bookmark", "bookmark-outline") }} />
       <Tabs.Screen name="lease" options={{ title: "Lease", tabBarIcon: tabIcon("document-text", "document-text-outline") }} />
       <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: tabIcon("person", "person-outline") }} />

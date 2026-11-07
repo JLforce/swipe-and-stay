@@ -16,7 +16,10 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
             <Stack.Screen name="listing/[id]" options={{ presentation: "modal" }} />
             <Stack.Screen name="match/[id]" options={{ presentation: "modal" }} />
-            <Stack.Screen name="notifications" options={{ presentation: "modal" }} />
+            <Stack.Screen
+              name="notifications"
+              options={{ presentation: "transparentModal", animation: "slide_from_bottom", contentStyle: { backgroundColor: "transparent" } }}
+            />
             <Stack.Screen name="preferences" options={{ presentation: "modal" }} />
           </Stack>
           <Toast />

@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { Card, SectionTitle } from "../../components/kit";
-import { BASE_LIKES, STUDENT_ACCOUNTS, WEEKLY_SWIPES } from "../../data/mockData";
+import { Btn, Card, SectionTitle } from "../../components/kit";
+import { ListingFormModal } from "../../components/ListingForm";
+import { BASE_LIKES, type Listing } from "../../data/mockData";
+import { boardersStore, conversationsStore, myListingsStore } from "../../lib/landlordStore";
 import { useApp } from "../../lib/store";
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -13,42 +16,57 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export default function Overview() {
-  const { listings, swipes, likedIds } = useApp();
-  const active = listings.filter((l) => l.active).length;
-  const baseSwipes = STUDENT_ACCOUNTS.reduce((s, x) => s + x.swipes, 0);
-  const totalSwipes = baseSwipes + swipes.length;
-  const totalLikes = Object.values(BASE_LIKES).reduce((s, n) => s + n, 0) + likedIds.length;
-  const max = Math.max(...WEEKLY_SWIPES.map((d) => d.n));
+  const { likedIds, upsertListing, flash } = useApp();
+  const [mine] = myListingsStore.use();
+  const [boarders] = boardersStore.use();
+  const [chats] = conversationsStore.use();
+  const [formKey, setFormKey] = useState<number | null>(null);
 
-  const mostLiked = listings
-    .map((l) => ({ l, likes: (BASE_LIKES[l.id] ?? 0) + (likedIds.includes(l.id) ? 1 : 0) }))
+  const active = mine.filter((l) => l.active).length;
+  const likesOf = (id: string) => (BASE_LIKES[id] ?? 0) + (likedIds.includes(id) ? 1 : 0);
+  const totalLikes = mine.reduce((s, l) => s + likesOf(String(l.id)), 0);
+  const unread = chats.reduce((s, c) => s + c.unread, 0);
+  const rentDue = boarders.filter((b) => !b.paid).length;
+
+  const mostLiked = mine
+    .map((l) => ({ l, likes: likesOf(String(l.id)) }))
+    .filter((x) => x.likes > 0)
     .sort((a, b) => b.likes - a.likes)
     .slice(0, 3);
 
+  const notices: string[] = [];
+  if (mine.length === 0) notices.push("Add your first posting to start getting students.");
+  if (unread > 0) notices.push(`${unread} unread message${unread > 1 ? "s" : ""}`);
+  if (rentDue > 0) notices.push(`${rentDue} boarder${rentDue > 1 ? "s have" : " has"} rent due`);
+
   return (
     <ScrollView className="flex-1 bg-background" contentContainerClassName="gap-4 px-4 pb-10">
+      <Btn icon="add" label="Add a new posting" onPress={() => setFormKey(Date.now())} />
+
       <View className="flex-row flex-wrap justify-between gap-y-3">
-        <Stat label="Active listings" value={`${active}/${listings.length}`} />
-        <Stat label="Registered students" value={`${STUDENT_ACCOUNTS.length}`} />
+        <Stat label="Active listings" value={`${active}/${mine.length}`} />
+        <Stat label="Current boarders" value={`${boarders.length}`} />
         <Stat label="Total likes" value={`${totalLikes}`} />
-        <Stat label="Card views (swipes)" value={`${totalSwipes}`} />
+        <Stat label="Unread messages" value={`${unread}`} />
       </View>
 
-      <Card className="gap-3">
-        <Text className="text-sm font-extrabold text-foreground">Swipes this week</Text>
-        <View className="h-28 flex-row items-end justify-between gap-2">
-          {WEEKLY_SWIPES.map((d) => (
-            <View key={d.day} className="flex-1 items-center gap-1">
-              <View className="w-full rounded-t-xl bg-primary" style={{ height: Math.max(8, (d.n / max) * 90) }} />
-              <Text className="text-[10px] text-muted-foreground">{d.day}</Text>
-            </View>
-          ))}
-        </View>
-        <Text className="text-[11px] text-muted-foreground">Sample data. Real counts come from the swipes table.</Text>
-      </Card>
+      <View>
+        <SectionTitle>Needs your attention</SectionTitle>
+        <Card className="gap-2">
+          {notices.length === 0 ? (
+            <Text className="text-sm text-muted-foreground">You're all caught up.</Text>
+          ) : (
+            notices.map((t) => (
+              <Text key={t} className="text-sm text-foreground">
+                • {t}
+              </Text>
+            ))
+          )}
+        </Card>
+      </View>
 
       <View>
-        <SectionTitle>Most liked</SectionTitle>
+        <SectionTitle>Your most liked listings</SectionTitle>
         <Card className="gap-3">
           {mostLiked.map(({ l, likes }, i) => (
             <View key={l.id} className="flex-row items-center gap-3">
@@ -61,8 +79,25 @@ export default function Overview() {
               <Text className="text-sm font-bold text-muted-foreground">♡ {likes}</Text>
             </View>
           ))}
+          {mostLiked.length === 0 ? <Text className="text-sm text-muted-foreground">No likes yet.</Text> : null}
         </Card>
       </View>
+
+      {formKey ? (
+        <ListingFormModal
+          key={formKey}
+          visible
+          listing={null}
+          onClose={() => setFormKey(null)}
+          onSave={(l) => {
+            const saved = (l.id ? l : { ...l, id: `L${Date.now()}` }) as Listing;
+            upsertListing(saved);
+            myListingsStore.set((p) => [...p, saved]);
+            flash("Listing added");
+            setFormKey(null);
+          }}
+        />
+      ) : null}
     </ScrollView>
   );
 }

@@ -1,5 +1,5 @@
-import type { ColorValue } from "react-native";
 import { Redirect, Tabs } from "expo-router";
+import type { ColorValue } from "react-native";
 import { AppHeader } from "../../components/AppHeader";
 import { Icon, type IconName } from "../../components/kit";
 import { colors } from "../../constants/brand";
@@ -25,9 +25,11 @@ export default function AdminLayout() {
         tabBarLabelStyle: { fontWeight: "700", fontSize: 11 },
       }}
     >
-      <Tabs.Screen name="overview" options={{ title: "Overview", tabBarIcon: tabIcon("grid", "grid-outline") }} />
+      <Tabs.Screen name="overview" options={{ title: "Dashboard", tabBarIcon: tabIcon("grid", "grid-outline") }} />
       <Tabs.Screen name="listings" options={{ title: "Listings", tabBarIcon: tabIcon("business", "business-outline") }} />
-      <Tabs.Screen name="students" options={{ title: "Students", tabBarIcon: tabIcon("people", "people-outline") }} />
+      <Tabs.Screen name="boarders" options={{ title: "Boarders", tabBarIcon: tabIcon("people", "people-outline") }} />
+      <Tabs.Screen name="landlord-inbox" options={{ title: "Messages", tabBarIcon: tabIcon("chatbubbles", "chatbubbles-outline") }} />
+      <Tabs.Screen name="landlord-account" options={{ title: "Profile", tabBarIcon: tabIcon("person", "person-outline") }} />
     </Tabs>
   );
 }

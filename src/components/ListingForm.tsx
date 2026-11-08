@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, View } from "react-native";
-import { HOUSING_TYPES, type HousingType } from "../constants/housing";
 import { colors } from "../constants/brand";
+import { HOUSING_TYPES, type HousingType } from "../constants/housing";
 import type { Listing } from "../data/mockData";
 import { ModalHeader } from "./AppHeader";
 import { Btn, Chip, Photo } from "./kit";
@@ -121,16 +121,10 @@ export function ListingFormModal({
           <Field label="Amenities (comma separated)" value={amenities} onChangeText={setAmenities} />
           <Field label="Description" value={description} onChangeText={setDescription} multiline />
           <View className="flex-row gap-3">
-            <View className="flex-1">
-              <Field label="Latitude" value={lat} onChangeText={setLat} keyboardType="decimal-pad" />
-            </View>
-            <View className="flex-1">
-              <Field label="Longitude" value={lng} onChangeText={setLng} keyboardType="decimal-pad" />
-            </View>
           </View>
-          <Field label="Landlord name" value={landlord} onChangeText={setLandlord} />
-          <Field label="Landlord phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-          <Field label="Landlord email" value={email} onChangeText={setEmail} keyboardType="email-address" />
+          <Field label="Name" value={landlord} onChangeText={setLandlord} />
+          <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+          <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
           {error ? (
             <Text className="rounded-2xl bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">{error}</Text>
           ) : null}

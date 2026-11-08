@@ -4,20 +4,27 @@ import { Btn, Card, Chip, Photo, Tag } from "../../components/kit";
 import { ListingFormModal } from "../../components/ListingForm";
 import type { Listing } from "../../data/mockData";
 import { peso } from "../../lib/format";
+import { myListingsStore } from "../../lib/landlordStore";
 import { useApp } from "../../lib/store";
 
 type Filter = "all" | "active" | "inactive";
 
 export default function AdminListings() {
-  const { listings, upsertListing, toggleActive, flash } = useApp();
+  const { upsertListing, toggleActive, flash } = useApp();
+  const [mine] = myListingsStore.use();
   const [filter, setFilter] = useState<Filter>("all");
   const [form, setForm] = useState<{ open: boolean; listing: Listing | null; key: number }>({ open: false, listing: null, key: 0 });
 
-  const rows = listings.filter((l) => (filter === "all" ? true : filter === "active" ? l.active : !l.active));
+  const rows = mine.filter((l) => (filter === "all" ? true : filter === "active" ? l.active : !l.active));
+
+  function flip(l: Listing) {
+    myListingsStore.set((p) => p.map((x) => (String(x.id) === String(l.id) ? { ...x, active: !x.active } : x)));
+    toggleActive(l.id);
+  }
 
   function confirmToggle(l: Listing) {
     if (!l.active) {
-      toggleActive(l.id);
+      flip(l);
       flash("Listing is live again");
       return;
     }
@@ -27,7 +34,7 @@ export default function AdminListings() {
         text: "Deactivate",
         style: "destructive",
         onPress: () => {
-          toggleActive(l.id);
+          flip(l);
           flash("Listing deactivated");
         },
       },
@@ -42,7 +49,7 @@ export default function AdminListings() {
             <Chip key={f} label={f[0]!.toUpperCase() + f.slice(1)} selected={filter === f} onPress={() => setFilter(f)} />
           ))}
         </View>
-        <Btn icon="add" label="Add a new listing" onPress={() => setForm({ open: true, listing: null, key: Date.now() })} />
+        <Btn icon="add" label="Add a new posting" onPress={() => setForm({ open: true, listing: null, key: Date.now() })} />
 
         {rows.map((l) => (
           <Card key={l.id} className="flex-row gap-3 p-3">
@@ -72,7 +79,11 @@ export default function AdminListings() {
             </View>
           </Card>
         ))}
-        {rows.length === 0 ? <Text className="px-1 text-sm text-muted-foreground">No listings here.</Text> : null}
+        {rows.length === 0 ? (
+          <Text className="px-1 text-sm text-muted-foreground">
+            {mine.length === 0 ? "You have no listings yet. Tap “Add a new posting” to create one." : "No listings here."}
+          </Text>
+        ) : null}
       </ScrollView>
 
       {form.open ? (
@@ -82,7 +93,13 @@ export default function AdminListings() {
           listing={form.listing}
           onClose={() => setForm({ ...form, open: false })}
           onSave={(l) => {
-            upsertListing(l);
+            const saved = (l.id ? l : { ...l, id: `L${Date.now()}` }) as Listing;
+            upsertListing(saved);
+            myListingsStore.set((p) =>
+              p.some((x) => String(x.id) === String(saved.id))
+                ? p.map((x) => (String(x.id) === String(saved.id) ? saved : x))
+                : [...p, saved],
+            );
             flash(form.listing ? "Listing updated" : "Listing added");
             setForm({ ...form, open: false });
           }}

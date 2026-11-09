@@ -89,8 +89,8 @@ export default function Lease() {
             {result.flagged_clauses.length > 0 ? (
               <>
                 <SectionTitle>Clauses to double-check</SectionTitle>
-                {result.flagged_clauses.map((c) => (
-                  <Card key={c.clause} className="gap-1 border-destructive/30 bg-destructive/5">
+                {result.flagged_clauses.map((c, i) => (
+                  <Card key={`${i}-${c.clause}`} className="gap-1 border-destructive/30 bg-destructive/5">
                     <View className="flex-row items-center gap-2">
                       <Icon name="warning-outline" size={16} color={colors.destructive} />
                       <Text className="text-sm font-bold text-foreground">{c.clause}</Text>

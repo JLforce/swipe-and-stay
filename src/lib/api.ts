@@ -32,3 +32,34 @@ export interface LeaseReview {
 export async function submitLeaseReview(text: string): Promise<LeaseReview> {
   return callFn<LeaseReview>("submit-lease-review", { text });
 }
+
+export interface AdminStudent {
+  id: string;
+  name: string | null;
+  email: string | null;
+  campus: string | null;
+  program: string | null;
+  onboarding_completed: boolean;
+  joined_at: string;
+  swipes: number;
+}
+
+export interface AdminStats {
+  stats: {
+    active_listings: number | null;
+    total_listings: number | null;
+    registered_students: number | null;
+    total_swipes: number | null;
+    total_likes: number | null;
+    swipe_sessions: number;
+  };
+  // The first deployed version may not include these two yet.
+  most_liked?: { listing_id: string; title: string; likes: number }[];
+  weekly_swipes?: { day: string; n: number }[];
+  students: AdminStudent[];
+}
+
+/** Admin dashboard numbers and the student list (SRS 3.1.11). Admin only. */
+export async function adminGetStats(): Promise<AdminStats> {
+  return callFn<AdminStats>("admin-get-stats", {});
+}

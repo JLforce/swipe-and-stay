@@ -1,10 +1,16 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
-import { Card, Icon } from "../../components/kit";
+import { Card, SectionTitle } from "../../components/kit";
 import { colors } from "../../constants/brand";
-import { fetchMyListings } from "../../lib/listings";
+import { adminGetStats, type AdminStats } from "../../lib/api";
 import { useApp } from "../../lib/store";
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function num(n: number | null | undefined): string {
+  return n === null || n === undefined ? "–" : String(n);
+}
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -20,31 +26,25 @@ function Stat({ label, value }: { label: string; value: string }) {
 export default function Overview() {
   const { account } = useApp();
   const accountId = account?.id;
-  const [counts, setCounts] = useState<{
-    active: number;
-    total: number;
-  } | null>(null);
+  const [data, setData] = useState<AdminStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Reload the counts every time this tab is opened.
+  // Reload the numbers every time this tab is opened.
   useFocusEffect(
     useCallback(() => {
       if (!accountId) return;
       let active = true;
 
-      fetchMyListings(accountId)
-        .then((rows) => {
+      adminGetStats()
+        .then((res) => {
           if (!active) return;
-          setCounts({
-            active: rows.filter((r) => r.is_active).length,
-            total: rows.length,
-          });
+          setData(res);
           setError(null);
         })
         .catch((e: unknown) => {
           if (!active) return;
           setError(
-            e instanceof Error ? e.message : "Could not load your listings.",
+            e instanceof Error ? e.message : "Could not load the dashboard.",
           );
         });
 
@@ -53,6 +53,10 @@ export default function Overview() {
       };
     }, [accountId]),
   );
+
+  const weekly = data?.weekly_swipes ?? [];
+  const max = Math.max(1, ...weekly.map((d) => d.n));
+  const mostLiked = data?.most_liked ?? [];
 
   return (
     <ScrollView
@@ -65,41 +69,89 @@ export default function Overview() {
         </Text>
       ) : null}
 
-      {!counts && !error ? (
+      {!data && !error ? (
         <View className="items-center py-6">
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : null}
 
-      {counts ? (
-        <View className="flex-row flex-wrap justify-between gap-y-3">
-          <Stat
-            label="Active listings"
-            value={`${counts.active}/${counts.total}`}
-          />
-          <Stat
-            label="Inactive listings"
-            value={`${counts.total - counts.active}`}
-          />
-        </View>
-      ) : null}
+      {data ? (
+        <>
+          <View className="flex-row flex-wrap justify-between gap-y-3">
+            <Stat
+              label="Active listings"
+              value={`${num(data.stats.active_listings)}/${num(data.stats.total_listings)}`}
+            />
+            <Stat
+              label="Registered students"
+              value={num(data.stats.registered_students)}
+            />
+            <Stat label="Total likes" value={num(data.stats.total_likes)} />
+            <Stat
+              label="Card views (swipes)"
+              value={num(data.stats.total_swipes)}
+            />
+          </View>
 
-      <Card className="gap-2 bg-primary/5">
-        <View className="flex-row items-center gap-2">
-          <Icon
-            name="shield-checkmark-outline"
-            size={16}
-            color={colors.primary}
-          />
-          <Text className="text-sm font-extrabold text-primary">
-            Student statistics
-          </Text>
-        </View>
-        <Text className="text-[11px] text-muted-foreground">
-          Student counts, likes and swipe activity are not shown yet. They need
-          approval from the project team, because they use student data.
-        </Text>
-      </Card>
+          <Card className="gap-3">
+            <Text className="text-sm font-extrabold text-foreground">
+              Swipes this week
+            </Text>
+            {weekly.length > 0 ? (
+              <View className="h-28 flex-row items-end justify-between gap-2">
+                {weekly.map((d) => (
+                  <View key={d.day} className="flex-1 items-center gap-1">
+                    <View
+                      className="w-full rounded-t-xl bg-primary"
+                      style={{ height: Math.max(8, (d.n / max) * 90) }}
+                    />
+                    <Text className="text-[10px] text-muted-foreground">
+                      {DAY_NAMES[new Date(`${d.day}T00:00:00Z`).getUTCDay()]}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text className="text-xs text-muted-foreground">
+                No weekly data yet.
+              </Text>
+            )}
+          </Card>
+
+          <View>
+            <SectionTitle>Most liked</SectionTitle>
+            <Card className="gap-3">
+              {mostLiked.length === 0 ? (
+                <Text className="text-xs text-muted-foreground">
+                  No likes yet.
+                </Text>
+              ) : (
+                mostLiked.slice(0, 3).map((m, i) => (
+                  <View
+                    key={m.listing_id}
+                    className="flex-row items-center gap-3"
+                  >
+                    <View className="h-7 w-7 items-center justify-center rounded-full bg-secondary">
+                      <Text className="text-xs font-extrabold text-primary">
+                        {i + 1}
+                      </Text>
+                    </View>
+                    <Text
+                      className="flex-1 text-sm font-semibold text-foreground"
+                      numberOfLines={1}
+                    >
+                      {m.title}
+                    </Text>
+                    <Text className="text-sm font-bold text-muted-foreground">
+                      ♡ {m.likes}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </Card>
+          </View>
+        </>
+      ) : null}
     </ScrollView>
   );
 }

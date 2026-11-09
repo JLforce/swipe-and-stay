@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/brand";
@@ -164,9 +164,11 @@ export function Row({
 export function Logo({ subtitle }: { subtitle?: string }) {
   return (
     <View className="flex-row items-center gap-2">
-      <View className="h-9 w-9 items-center justify-center rounded-2xl bg-primary">
-        <Icon name="sparkles" size={16} color={colors.primaryForeground} />
-      </View>
+      <Image
+        source={require("../../assets/images/logo-mark.png")}
+        style={{ width: 38, height: 38 }}
+        accessibilityLabel="Swipe & Stay logo"
+      />
       <View>
         <Text className="text-sm font-extrabold text-foreground">Swipe &amp; Stay</Text>
         {subtitle ? <Text className="text-[11px] text-muted-foreground">{subtitle}</Text> : null}

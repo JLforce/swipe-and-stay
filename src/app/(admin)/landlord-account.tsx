@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ScrollView, Text, TextInput, View } from "react-native";
 import { Btn, Card, SectionTitle } from "../../components/kit";
 import { colors } from "../../constants/brand";
@@ -31,18 +31,18 @@ function Field({ placeholder, value, onChangeText, phone }: { placeholder: strin
 export default function LandlordAccount() {
   const router = useRouter();
   const { account, flash, signOut } = useApp();
-  const [profile, , ready] = landlordProfileStore.use();
+  const [profile] = landlordProfileStore.use();
   const [mine] = myListingsStore.use();
   const [boarders] = boardersStore.use();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
 
-  useEffect(() => {
-    if (!ready) return;
+  function startEdit() {
     setName(profile.name);
     setContact(profile.contact);
-  }, [ready]);
+    setEditing(true);
+  }
 
   const a = account as unknown as { name?: string; email?: string } | null;
 
@@ -68,7 +68,7 @@ export default function LandlordAccount() {
             </View>
           </View>
         ) : (
-          <Btn variant="outline" className="px-3 py-2" icon="pencil" label="Edit profile" onPress={() => setEditing(true)} />
+          <Btn variant="outline" className="px-3 py-2" icon="pencil" label="Edit profile" onPress={startEdit} />
         )}
       </Card>
 

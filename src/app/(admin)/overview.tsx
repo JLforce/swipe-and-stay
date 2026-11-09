@@ -54,7 +54,7 @@ export default function Overview() {
         <SectionTitle>Needs your attention</SectionTitle>
         <Card className="gap-2">
           {notices.length === 0 ? (
-            <Text className="text-sm text-muted-foreground">You're all caught up.</Text>
+            <Text className="text-sm text-muted-foreground">You&apos;re all caught up.</Text>
           ) : (
             notices.map((t) => (
               <Text key={t} className="text-sm text-foreground">

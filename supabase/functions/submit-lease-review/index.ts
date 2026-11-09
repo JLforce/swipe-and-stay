@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
       return fail("The lease assistant is busy right now. Try again in a minute.", 503, "provider_busy");
     }
     console.error("lease-review failed:", e);
-    return fail("Lease review failed. Try again.", 502, "provider_error");
+    return fail("Could not analyze this lease. Please try again.", 502, "provider_error");
   }
 
   // Single insert (lease_reviews has no UPDATE policy), as the user so RLS applies.

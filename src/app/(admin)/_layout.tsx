@@ -68,6 +68,13 @@ export default function AdminLayout() {
           tabBarIcon: tabIcon("people", "people-outline"),
         }}
       />
+      <Tabs.Screen
+        name="owners"
+        options={{
+          title: "Owners",
+          tabBarIcon: tabIcon("person-circle", "person-circle-outline"),
+        }}
+      />
     </Tabs>
   );
 }

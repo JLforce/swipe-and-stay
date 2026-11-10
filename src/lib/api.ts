@@ -4,15 +4,12 @@ import { supabase } from "./supabase";
 export async function callFn<T>(name: string, body: object = {}): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body });
   if (error) {
-    // Non-2xx replies carry our { error: { message } } body; show that instead of the generic text.
     let message = error.message ?? "Request failed";
     try {
       const res = (error as { context?: Response }).context;
       const body = res ? await res.json() : null;
       if (body?.error?.message) message = body.error.message;
-    } catch {
-      // keep the generic message
-    }
+    } catch {}
     throw new Error(message);
   }
   if (data?.error) throw new Error(data.error.message ?? "Request failed");
@@ -44,6 +41,34 @@ export interface AdminStudent {
   swipes: number;
 }
 
+export interface AdminDashboardAnalytics {
+  period: {
+    days: number;
+    timezone: string;
+  };
+  engagement: {
+    total_swipes: number;
+    total_likes: number;
+    total_passes: number;
+    students_who_swiped: number;
+  };
+  daily_activity: {
+    date: string;
+    swipes: number;
+    likes: number;
+    passes: number;
+  }[];
+  daily_registrations: {
+    date: string;
+    students: number;
+  }[];
+  most_liked: {
+    listing_id: string;
+    title: string;
+    likes: number;
+  }[];
+}
+
 export interface AdminStats {
   stats: {
     active_listings: number | null;
@@ -53,13 +78,20 @@ export interface AdminStats {
     total_likes: number | null;
     swipe_sessions: number;
   };
-  // The first deployed version may not include these two yet.
-  most_liked?: { listing_id: string; title: string; likes: number }[];
-  weekly_swipes?: { day: string; n: number }[];
+  most_liked?: {
+    listing_id: string;
+    title: string;
+    likes: number;
+  }[];
+  weekly_swipes?: {
+    day: string;
+    n: number;
+  }[];
   students: AdminStudent[];
+  analytics?: AdminDashboardAnalytics;
 }
 
 /** Admin dashboard numbers and the student list (SRS 3.1.11). Admin only. */
-export async function adminGetStats(): Promise<AdminStats> {
-  return callFn<AdminStats>("admin-get-stats", {});
+export async function adminGetStats(days: 7 | 30 = 7): Promise<AdminStats> {
+  return callFn<AdminStats>("admin-get-stats", { days });
 }

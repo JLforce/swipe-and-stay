@@ -1,13 +1,17 @@
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Platform,
+  RefreshControl,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
-import { Btn, Card, Chip, Photo, Tag } from "../../components/kit";
+
+import { Btn, Card, Chip, Icon, Photo, Tag } from "../../components/kit";
 import { ListingFormModal } from "../../components/ListingForm";
 import { colors } from "../../constants/brand";
 import type { Listing } from "../../data/mockData";
@@ -25,7 +29,6 @@ import { useApp } from "../../lib/store";
 
 type Filter = "all" | "active" | "inactive";
 
-// Alert.alert with buttons does nothing on web, so use the browser dialogs there.
 function confirmAction(
   title: string,
   message: string,
@@ -34,6 +37,7 @@ function confirmAction(
   if (Platform.OS === "web") {
     return Promise.resolve(window.confirm(`${title}\n\n${message}`));
   }
+
   return new Promise((resolve) => {
     Alert.alert(
       title,
@@ -59,66 +63,253 @@ function showMessage(title: string, message: string) {
   }
 }
 
+function SummaryCard({
+  label,
+  value,
+  icon,
+  tone = "primary",
+}: {
+  label: string;
+  value: number;
+  icon: React.ComponentProps<typeof Icon>["name"];
+  tone?: "primary" | "accent" | "muted";
+}) {
+  const iconColor =
+    tone === "accent"
+      ? colors.accent
+      : tone === "muted"
+        ? colors.mutedForeground
+        : colors.primary;
+
+  const iconBackground =
+    tone === "accent"
+      ? "bg-accent/10"
+      : tone === "muted"
+        ? "bg-secondary"
+        : "bg-primary/10";
+
+  return (
+    <View className="min-w-0 flex-1 rounded-2xl border border-border bg-card p-3">
+      <View
+        className={`mb-3 h-9 w-9 items-center justify-center rounded-xl ${iconBackground}`}
+      >
+        <Icon name={icon} size={18} color={iconColor} />
+      </View>
+
+      <Text className="text-2xl font-extrabold text-foreground">{value}</Text>
+
+      <Text className="mt-1 text-[11px] font-semibold text-muted-foreground">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function ListingCard({
+  listing,
+  busy,
+  onEdit,
+  onToggle,
+}: {
+  listing: Listing;
+  busy: boolean;
+  onEdit: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <Card className="gap-3 p-3">
+      <View className="flex-row gap-3">
+        <Photo
+          gradient={listing.photo}
+          className="h-[104px] w-[104px] rounded-2xl"
+        />
+
+        <View className="min-w-0 flex-1 gap-1">
+          <View className="flex-row items-start justify-between gap-2">
+            <Text
+              className="flex-1 text-sm font-extrabold text-foreground"
+              numberOfLines={2}
+            >
+              {listing.title}
+            </Text>
+
+            <Tag tone={listing.active ? "primary" : "danger"}>
+              {listing.active ? "Live" : "Inactive"}
+            </Tag>
+          </View>
+
+          <View className="flex-row items-center gap-1">
+            <Icon
+              name="location-outline"
+              size={13}
+              color={colors.mutedForeground}
+            />
+            <Text
+              className="flex-1 text-xs text-muted-foreground"
+              numberOfLines={2}
+            >
+              {listing.area}
+            </Text>
+          </View>
+
+          <Text className="mt-1 text-lg font-extrabold text-primary">
+            {peso(listing.price)}
+            <Text className="text-xs font-medium text-muted-foreground">
+              {" "}
+              / month
+            </Text>
+          </Text>
+
+          <View className="mt-1 flex-row flex-wrap gap-1.5">
+            <Tag>{listing.type}</Tag>
+            <Tag tone="muted">
+              {listing.occupancy === "shared" ? "Shared" : "Private"}
+            </Tag>
+          </View>
+        </View>
+      </View>
+
+      <View className="h-px bg-border" />
+
+      <View className="flex-row gap-2">
+        <View className="flex-1">
+          <Btn
+            label="Edit listing"
+            icon="create-outline"
+            variant="outline"
+            disabled={busy}
+            className="py-3"
+            onPress={onEdit}
+          />
+        </View>
+
+        <View className="flex-1">
+          <Btn
+            label={listing.active ? "Deactivate" : "Activate"}
+            icon={listing.active ? "eye-off-outline" : "eye-outline"}
+            variant={listing.active ? "soft" : "primary"}
+            disabled={busy}
+            className="py-3"
+            onPress={onToggle}
+          />
+        </View>
+      </View>
+    </Card>
+  );
+}
+
 export default function AdminListings() {
   const { account, flash } = useApp();
   const accountId = account?.id;
+
   const [rows, setRows] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+
   const [filter, setFilter] = useState<Filter>("all");
+  const [search, setSearch] = useState("");
+
   const [form, setForm] = useState<{
     open: boolean;
     listing: Listing | null;
     key: number;
-  }>({ open: false, listing: null, key: 0 });
+  }>({
+    open: false,
+    listing: null,
+    key: 0,
+  });
 
-  // Load this admin's own listings from Supabase.
-  useEffect(() => {
-    if (!accountId) return;
-    let active = true;
+  const loadListings = useCallback(
+    async (isRefresh = false) => {
+      if (!accountId) return;
 
-    fetchMyListings(accountId)
-      .then((data) => {
-        if (!active) return;
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const data = await fetchMyListings(accountId);
+
         setRows(data.map(rowToListing));
         setLoadError(null);
-        setLoading(false);
-      })
-      .catch((e: unknown) => {
-        if (!active) return;
+      } catch (e) {
         setLoadError(
           e instanceof Error ? e.message : "Could not load your listings.",
         );
+      } finally {
         setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [accountId]);
-
-  const shown = rows.filter((l) =>
-    filter === "all" ? true : filter === "active" ? l.active : !l.active,
+        setRefreshing(false);
+      }
+    },
+    [accountId],
   );
 
-  async function save(l: Listing) {
+  // Refresh whenever the Listings tab becomes active.
+  useFocusEffect(
+    useCallback(() => {
+      void loadListings();
+    }, [loadListings]),
+  );
+
+  const activeCount = rows.filter((listing) => listing.active).length;
+  const inactiveCount = rows.length - activeCount;
+
+  const filteredRows = rows.filter((listing) => {
+    const matchesFilter =
+      filter === "all"
+        ? true
+        : filter === "active"
+          ? listing.active
+          : !listing.active;
+
+    const query = search.trim().toLowerCase();
+
+    const matchesSearch =
+      !query ||
+      `${listing.title} ${listing.area} ${listing.type}`
+        .toLowerCase()
+        .includes(query);
+
+    return matchesFilter && matchesSearch;
+  });
+
+  async function save(listing: Listing) {
     if (saving) return;
+
     setSaving(true);
+
     try {
       if (form.listing) {
-        const row = await updateListing(form.listing.id, listingToUpdate(l));
+        const row = await updateListing(
+          form.listing.id,
+          listingToUpdate(listing),
+        );
+
         const saved = rowToListing(row);
-        setRows((cur) => cur.map((x) => (x.id === saved.id ? saved : x)));
+
+        setRows((current) =>
+          current.map((item) => (item.id === saved.id ? saved : item)),
+        );
+
         flash("Listing updated");
       } else {
-        // New listings start as drafts; the admin activates them when ready.
-        const row = await createListing(listingToInsert(l, false));
-        setRows((cur) => [rowToListing(row), ...cur]);
+        const row = await createListing(listingToInsert(listing, false));
+
+        setRows((current) => [rowToListing(row), ...current]);
+
         flash("Listing added as a draft");
       }
-      setForm((f) => ({ ...f, open: false }));
+
+      setForm((current) => ({
+        ...current,
+        open: false,
+      }));
     } catch (e) {
       showMessage(
         "Could not save the listing",
@@ -129,27 +320,34 @@ export default function AdminListings() {
     }
   }
 
-  async function toggle(l: Listing) {
+  async function toggle(listing: Listing) {
     if (busyId) return;
 
-    if (l.active) {
-      const ok = await confirmAction(
+    if (listing.active) {
+      const confirmed = await confirmAction(
         "Deactivate listing?",
-        `${l.title} will be hidden from students.`,
+        `${listing.title} will be hidden from students.`,
         "Deactivate",
       );
-      if (!ok) return;
+
+      if (!confirmed) return;
     }
 
-    setBusyId(l.id);
+    setBusyId(listing.id);
+
     try {
-      const row = await setListingActive(l.id, !l.active);
+      const row = await setListingActive(listing.id, !listing.active);
+
       const saved = rowToListing(row);
-      setRows((cur) => cur.map((x) => (x.id === saved.id ? saved : x)));
-      flash(saved.active ? "Listing is live" : "Listing deactivated");
+
+      setRows((current) =>
+        current.map((item) => (item.id === saved.id ? saved : item)),
+      );
+
+      flash(saved.active ? "Listing is now live" : "Listing deactivated");
     } catch (e) {
       showMessage(
-        "Could not change the listing",
+        "Could not change listing status",
         e instanceof Error ? e.message : "Please try again.",
       );
     } finally {
@@ -159,93 +357,241 @@ export default function AdminListings() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-3 px-4 pb-10">
-        <View className="flex-row items-center gap-2">
-          {(["all", "active", "inactive"] as Filter[]).map((f) => (
-            <Chip
-              key={f}
-              label={f[0]!.toUpperCase() + f.slice(1)}
-              selected={filter === f}
-              onPress={() => setFilter(f)}
-            />
-          ))}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void loadListings(true)}
+            tintColor={colors.primary}
+          />
+        }
+        contentContainerClassName="gap-4 px-4 pb-10 pt-3"
+      >
+        {/* Page introduction */}
+        <View className="gap-1">
+          <Text className="text-2xl font-extrabold text-foreground">
+            Listing management
+          </Text>
+
+          <Text className="text-sm text-muted-foreground">
+            Manage your properties and their availability.
+          </Text>
         </View>
+
+        {/* Listing summary */}
+        <View className="flex-row gap-2">
+          <SummaryCard
+            label="Total listings"
+            value={rows.length}
+            icon="business-outline"
+          />
+
+          <SummaryCard
+            label="Active"
+            value={activeCount}
+            icon="checkmark-circle-outline"
+          />
+
+          <SummaryCard
+            label="Inactive"
+            value={inactiveCount}
+            icon="eye-off-outline"
+            tone="accent"
+          />
+        </View>
+
+        {/* Add listing */}
         <Btn
+          label="Add new listing"
           icon="add"
-          label="Add a new listing"
           onPress={() =>
-            setForm({ open: true, listing: null, key: Date.now() })
+            setForm({
+              open: true,
+              listing: null,
+              key: Date.now(),
+            })
           }
         />
 
+        {/* Search */}
+        <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-card px-4">
+          <Icon name="search" size={18} color={colors.mutedForeground} />
+
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search property or location..."
+            placeholderTextColor={colors.mutedForeground}
+            className="min-w-0 flex-1 py-3.5 text-sm text-foreground"
+            returnKeyType="search"
+          />
+
+          {search.length > 0 ? (
+            <Icon
+              name="close-circle"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          ) : null}
+        </View>
+
+        {/* Filters */}
+        <View className="gap-2">
+          <Text className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Filter listings
+          </Text>
+
+          <View className="flex-row flex-wrap gap-2">
+            <Chip
+              label={`All (${rows.length})`}
+              selected={filter === "all"}
+              onPress={() => setFilter("all")}
+            />
+
+            <Chip
+              label={`Active (${activeCount})`}
+              selected={filter === "active"}
+              onPress={() => setFilter("active")}
+            />
+
+            <Chip
+              label={`Inactive (${inactiveCount})`}
+              selected={filter === "inactive"}
+              onPress={() => setFilter("inactive")}
+            />
+          </View>
+        </View>
+
+        {/* Loading */}
         {loading ? (
-          <View className="items-center py-6">
-            <ActivityIndicator color={colors.primary} />
+          <View className="items-center gap-2 py-12">
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text className="text-xs text-muted-foreground">
+              Loading listings...
+            </Text>
           </View>
         ) : null}
 
+        {/* Error */}
         {loadError ? (
-          <Text className="rounded-2xl bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
-            {loadError}
-          </Text>
+          <View className="gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 p-4">
+            <View className="flex-row items-center gap-2">
+              <Icon
+                name="alert-circle-outline"
+                color={colors.destructive}
+                size={18}
+              />
+
+              <Text className="flex-1 text-sm font-bold text-destructive">
+                Unable to load listings
+              </Text>
+            </View>
+
+            <Text className="text-xs text-muted-foreground">{loadError}</Text>
+
+            <Btn
+              label="Try again"
+              icon="refresh"
+              variant="outline"
+              onPress={() => void loadListings()}
+            />
+          </View>
         ) : null}
 
-        {shown.map((l) => (
-          <Card key={l.id} className="flex-row gap-3 p-3">
-            <Photo gradient={l.photo} className="h-16 w-16 rounded-2xl" />
-            <View className="flex-1 gap-1">
-              <Text
-                className="text-sm font-bold text-foreground"
-                numberOfLines={1}
-              >
-                {l.title}
+        {/* Listings */}
+        {!loading && !loadError ? (
+          <View className="gap-3">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-base font-extrabold text-foreground">
+                {filter === "all"
+                  ? "Your properties"
+                  : filter === "active"
+                    ? "Active properties"
+                    : "Inactive properties"}
               </Text>
-              <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-                {l.area}
-              </Text>
-              <View className="flex-row flex-wrap gap-1.5">
-                <Tag tone="primary">{`${peso(l.price)}/mo`}</Tag>
-                <Tag>{l.type}</Tag>
-                <Tag tone={l.active ? "accent" : "danger"}>
-                  {l.active ? "Live" : "Inactive"}
-                </Tag>
-              </View>
-              <View className="mt-1 flex-row gap-2">
-                <Btn
-                  label="Edit"
-                  icon="pencil"
-                  className="px-3 py-2"
-                  disabled={busyId === l.id}
-                  onPress={() =>
-                    setForm({ open: true, listing: l, key: Date.now() })
-                  }
-                />
-                <Btn
-                  variant="outline"
-                  className="px-3 py-2"
-                  icon={l.active ? "eye-off-outline" : "eye-outline"}
-                  label={l.active ? "Deactivate" : "Activate"}
-                  disabled={busyId === l.id}
-                  onPress={() => toggle(l)}
-                />
-              </View>
-            </View>
-          </Card>
-        ))}
 
-        {!loading && !loadError && shown.length === 0 ? (
-          <Text className="px-1 text-sm text-muted-foreground">
-            No listings here.
-          </Text>
+              <Text className="text-xs font-semibold text-muted-foreground">
+                {filteredRows.length}{" "}
+                {filteredRows.length === 1 ? "listing" : "listings"}
+              </Text>
+            </View>
+
+            {filteredRows.map((listing) => (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                busy={busyId === listing.id || busyId !== null}
+                onEdit={() =>
+                  setForm({
+                    open: true,
+                    listing,
+                    key: Date.now(),
+                  })
+                }
+                onToggle={() => void toggle(listing)}
+              />
+            ))}
+
+            {filteredRows.length === 0 ? (
+              <View className="items-center rounded-3xl border border-border bg-card px-6 py-12">
+                <View className="mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
+                  <Icon
+                    name={search.trim() ? "search-outline" : "business-outline"}
+                    size={28}
+                    color={colors.primary}
+                  />
+                </View>
+
+                <Text className="text-base font-extrabold text-foreground">
+                  {search.trim()
+                    ? "No matching listings"
+                    : filter === "active"
+                      ? "No active listings"
+                      : filter === "inactive"
+                        ? "No inactive listings"
+                        : "No listings yet"}
+                </Text>
+
+                <Text className="mt-2 text-center text-xs leading-5 text-muted-foreground">
+                  {search.trim()
+                    ? "Try another property name or location."
+                    : "Add a property to start managing your housing listings."}
+                </Text>
+
+                {!search.trim() && filter === "all" ? (
+                  <Btn
+                    label="Add your first listing"
+                    icon="add"
+                    className="mt-5"
+                    onPress={() =>
+                      setForm({
+                        open: true,
+                        listing: null,
+                        key: Date.now(),
+                      })
+                    }
+                  />
+                ) : null}
+              </View>
+            ) : null}
+          </View>
         ) : null}
       </ScrollView>
 
+      {/* Add / Edit modal */}
       {form.open ? (
         <ListingFormModal
           key={form.key}
           visible
           listing={form.listing}
-          onClose={() => setForm((f) => ({ ...f, open: false }))}
+          onClose={() =>
+            setForm((current) => ({
+              ...current,
+              open: false,
+            }))
+          }
           onSave={save}
         />
       ) : null}

@@ -54,7 +54,7 @@ export default function MatchExplanation() {
           {aiLoading ? (
             <Card className="flex-row items-center gap-3">
               <ActivityIndicator color={colors.primary} />
-              <Text className="flex-1 text-xs text-muted-foreground">Writing your explanation… this can take up to 10 seconds.</Text>
+              <Text className="flex-1 text-xs text-muted-foreground">Writing your explanation…</Text>
             </Card>
           ) : aiText ? (
             <Card className="gap-1 border-primary/30 bg-primary/5">

@@ -22,6 +22,10 @@ export interface Listing {
   slotsLeft: number;
   active: boolean;
   coords: { lat: number; lng: number };
+  /** Real photos from Supabase Storage. Demo listings leave this empty and use `photo`. */
+  photoUrls?: string[];
+  /** Set for listings loaded from Supabase; demo listings have no owner. */
+  ownerId?: string | null;
 }
 
 export const LISTINGS: Listing[] = [
@@ -163,7 +167,7 @@ export const LISTINGS: Listing[] = [
   },
 ];
 
-export type Role = "student" | "admin";
+export type Role = "student" | "owner" | "admin";
 export interface DemoAccount {
   role: Role;
   email: string;

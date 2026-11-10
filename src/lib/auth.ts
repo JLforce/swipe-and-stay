@@ -5,7 +5,13 @@ import { supabase } from "./supabase";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type AppRole = "student" | "admin";
+export type AppRole = "student" | "owner" | "admin";
+
+const ROLE_LABEL: Record<AppRole, string> = {
+  student: "Student",
+  owner: "Owner",
+  admin: "Admin",
+};
 
 export interface AuthAccount {
   id: string;
@@ -19,11 +25,12 @@ export interface AuthAccount {
 export const MIN_PASSWORD_LENGTH = 8;
 
 /**
- * Turns a value from the URL (?mode=admin) into a safe role.
+ * Turns a value from the URL (?mode=owner) into a safe role.
  * Anything unknown becomes "student".
  */
 export function parseRole(value: string | null | undefined): AppRole {
-  return value === "admin" ? "admin" : "student";
+  if (value === "admin" || value === "owner") return value;
+  return "student";
 }
 
 /**
@@ -98,16 +105,18 @@ export async function signInWithGoogle(
 }
 
 /**
- * Creates a STUDENT account with email and password.
+ * Creates a STUDENT or OWNER account with email and password.
  *
- * No role is sent. The database trigger creates the profile and gives it the
- * default role "student", and clients are not allowed to change roles.
- * Admin accounts are never created here.
+ * The database trigger creates the profile. It reads account_type from the
+ * sign-up metadata and accepts only "owner"; anything else becomes "student".
+ * Clients cannot change roles afterwards, and admin accounts are never
+ * created here.
  */
 export async function signUpWithEmail(
   name: string,
   email: string,
   password: string,
+  accountType: "student" | "owner" = "student",
 ): Promise<AuthAccount> {
   const cleanName = name.trim();
   const cleanEmail = email.trim().toLowerCase();
@@ -130,7 +139,10 @@ export async function signUpWithEmail(
     email: cleanEmail,
     password,
     options: {
-      data: { full_name: cleanName },
+      data:
+        accountType === "owner"
+          ? { full_name: cleanName, account_type: "owner" }
+          : { full_name: cleanName },
     },
   });
 
@@ -287,17 +299,35 @@ export async function completeGoogleSignIn(
 async function validateAccountRole(
   selectedRole: AppRole,
 ): Promise<AuthAccount> {
-  const account = await getCurrentAccount();
+  let account = await getCurrentAccount();
 
   if (!account) {
     throw new Error("Authentication succeeded, but no account was found.");
+  }
+
+  // A brand-new Google account starts as a student. If the person chose
+  // "Owner", ask the database to upgrade it. The database refuses accounts
+  // that were already used as students.
+  if (selectedRole === "owner" && account.role === "student") {
+    const { error } = await supabase.rpc("claim_owner_role");
+
+    if (error) {
+      await supabase.auth.signOut();
+      throw new Error(error.message);
+    }
+
+    account = await getCurrentAccount();
+
+    if (!account) {
+      throw new Error("Authentication succeeded, but no account was found.");
+    }
   }
 
   if (account.role !== selectedRole) {
     await supabase.auth.signOut();
 
     throw new Error(
-      `This account is registered as ${account.role}. Please choose the ${account.role === "student" ? "Student" : "Admin"} login option.`,
+      `This account is registered as ${ROLE_LABEL[account.role].toLowerCase()}. Please choose the ${ROLE_LABEL[account.role]} login option.`,
     );
   }
 
@@ -334,7 +364,11 @@ export async function getCurrentAccount(): Promise<AuthAccount | null> {
     );
   }
 
-  if (profile.role !== "student" && profile.role !== "admin") {
+  if (
+    profile.role !== "student" &&
+    profile.role !== "owner" &&
+    profile.role !== "admin"
+  ) {
     throw new Error("Your account has an unsupported role.");
   }
 

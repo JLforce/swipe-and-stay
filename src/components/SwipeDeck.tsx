@@ -63,7 +63,7 @@ export function SwipeDeck({
     <View className="h-[430px]">
       {next ? (
         <View className="absolute inset-x-3 top-3 h-full overflow-hidden rounded-[32px] border border-border bg-card opacity-70">
-          <Photo gradient={next.listing.photo} className="h-full w-full" />
+          <Photo gradient={next.listing.photo} uri={next.listing.photoUrls?.[0]} className="h-full w-full" />
         </View>
       ) : null}
       <Animated.View

@@ -31,6 +31,8 @@ export default function RootLayout() {
               options={{ presentation: "transparentModal", animation: "slide_from_bottom", contentStyle: { backgroundColor: "transparent" } }}
             />
             <Stack.Screen name="preferences" options={{ presentation: "modal" }} />
+            <Stack.Screen name="chat/[id]" options={{ presentation: "modal" }} />
+            <Stack.Screen name="messages" options={{ presentation: "modal" }} />
           </Stack>
           <Toast />
           {splashDone ? null : <AnimatedSplash onFinish={finishSplash} />}

@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.18"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       campuses: {
@@ -334,6 +309,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_status: string
           avatar_url: string | null
           budget_max: number | null
           budget_min: number | null
@@ -351,6 +327,7 @@ export type Database = {
           roommate_pref: string | null
         }
         Insert: {
+          account_status?: string
           avatar_url?: string | null
           budget_max?: number | null
           budget_min?: number | null
@@ -368,6 +345,7 @@ export type Database = {
           roommate_pref?: string | null
         }
         Update: {
+          account_status?: string
           avatar_url?: string | null
           budget_max?: number | null
           budget_min?: number | null
@@ -473,7 +451,11 @@ export type Database = {
       }
     }
     Functions: {
+      admin_dashboard_analytics: { Args: { p_days?: number }; Returns: Json }
+      admin_student_swipe_counts: { Args: never; Returns: Json }
+      is_active_owner: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
+      is_owner: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
@@ -602,9 +584,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

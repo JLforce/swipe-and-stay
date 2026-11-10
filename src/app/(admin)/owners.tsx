@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -8,8 +8,11 @@ import {
   View,
 } from "react-native";
 import { colors } from "../../constants/brand";
+import { fetchOwners, type OwnerRecord } from "../../lib/owners";
 
 type OwnerFilter = "all" | "active" | "pending" | "suspended";
+
+type Owner = OwnerRecord;
 
 const FILTERS: { label: string; value: OwnerFilter }[] = [
   { label: "All owners", value: "all" },
@@ -21,12 +24,12 @@ const FILTERS: { label: string; value: OwnerFilter }[] = [
 function StatCard({
   label,
   value,
-  description,
+  icon,
   accent,
 }: {
   label: string;
   value: string;
-  description: string;
+  icon: string;
   accent?: boolean;
 }) {
   return (
@@ -34,30 +37,41 @@ function StatCard({
       style={{
         flex: 1,
         minWidth: 0,
-        minHeight: 122,
-        padding: 16,
-        borderRadius: 20,
+        minHeight: 125,
+        padding: 15,
+        borderRadius: 19,
         borderWidth: 1,
         borderColor: colors.border,
         backgroundColor: colors.card,
         justifyContent: "space-between",
       }}
     >
-      <Text
+      <View
         style={{
-          fontSize: 12,
-          fontWeight: "700",
-          color: colors.mutedForeground,
+          width: 38,
+          height: 38,
+          borderRadius: 13,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: accent ? "#FCEFE5" : colors.secondary,
         }}
       >
-        {label}
-      </Text>
+        <Text
+          style={{
+            color: accent ? colors.accent : colors.primary,
+            fontSize: 18,
+            fontWeight: "800",
+          }}
+        >
+          {icon}
+        </Text>
+      </View>
 
       <Text
         style={{
-          fontSize: 27,
+          color: colors.foreground,
+          fontSize: 25,
           fontWeight: "900",
-          color: accent ? colors.accent : colors.primary,
         }}
       >
         {value}
@@ -65,11 +79,12 @@ function StatCard({
 
       <Text
         style={{
-          fontSize: 10,
           color: colors.mutedForeground,
+          fontSize: 11,
+          fontWeight: "700",
         }}
       >
-        {description}
+        {label}
       </Text>
     </View>
   );
@@ -112,21 +127,68 @@ export default function Owners() {
   const { width } = useWindowDimensions();
 
   const isWide = width >= 850;
-  const isTablet = width >= 600;
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<OwnerFilter>("all");
 
-  // Owner records will be connected to Supabase later.
-  // Keep this empty instead of displaying fabricated owner information.
-  const owners: {
-    id: string;
-    name: string;
-    email: string;
-    properties: number;
-    status: "active" | "pending" | "suspended";
-  }[] = [];
+  // Supabase Owner records
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Fetch Owner accounts from Supabase
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadOwners() {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const data = await fetchOwners();
+
+        if (isMounted) {
+          setOwners(data);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "An unexpected error occurred while loading Owner accounts.",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadOwners();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Owner statistics
+  const totalOwners = owners.length;
+
+  const activeOwners = owners.filter(
+    (owner) => owner.status === "active",
+  ).length;
+
+  const pendingOwners = owners.filter(
+    (owner) => owner.status === "pending",
+  ).length;
+
+  const totalProperties = owners.reduce(
+    (total, owner) => total + owner.properties,
+    0,
+  );
+
+  // Search and status filtering
   const filteredOwners = useMemo(() => {
     return owners.filter((owner) => {
       const matchesSearch = `${owner.name} ${owner.email}`
@@ -163,45 +225,18 @@ export default function Owners() {
           gap: 22,
         }}
       >
-        {/* Page heading */}
+        {/* PAGE HEADING */}
         <View style={{ gap: 6 }}>
-          <View
+          <Text
             style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
+              color: colors.foreground,
+              fontSize: isWide ? 29 : 25,
+              fontWeight: "900",
+              letterSpacing: -0.8,
             }}
           >
-            <Text
-              style={{
-                color: colors.foreground,
-                fontSize: isWide ? 29 : 25,
-                fontWeight: "900",
-                letterSpacing: -0.8,
-              }}
-            >
-              Owner management
-            </Text>
-
-            <View
-              style={{
-                backgroundColor: colors.secondary,
-                paddingHorizontal: 9,
-                paddingVertical: 5,
-                borderRadius: 8,
-              }}
-            >
-              <Text
-                style={{
-                  color: colors.primary,
-                  fontSize: 9,
-                  fontWeight: "900",
-                }}
-              >
-                OWNERS
-              </Text>
-            </View>
-          </View>
+            Owner management
+          </Text>
 
           <Text
             style={{
@@ -214,7 +249,7 @@ export default function Owners() {
           </Text>
         </View>
 
-        {/* Summary statistics */}
+        {/* OWNER OVERVIEW */}
         <View style={{ gap: 12 }}>
           <SectionHeading
             title="Owner overview"
@@ -232,24 +267,24 @@ export default function Owners() {
             <View style={{ width: statWidth }}>
               <StatCard
                 label="Total owners"
-                value="—"
-                description="All registered owners"
+                value={isLoading ? "..." : String(totalOwners)}
+                icon="♙"
               />
             </View>
 
             <View style={{ width: statWidth }}>
               <StatCard
                 label="Active owners"
-                value="—"
-                description="Currently active accounts"
+                value={isLoading ? "..." : String(activeOwners)}
+                icon="✓"
               />
             </View>
 
             <View style={{ width: statWidth }}>
               <StatCard
                 label="Pending approval"
-                value="—"
-                description="Awaiting verification"
+                value={isLoading ? "..." : String(pendingOwners)}
+                icon="◷"
                 accent
               />
             </View>
@@ -257,23 +292,21 @@ export default function Owners() {
             <View style={{ width: statWidth }}>
               <StatCard
                 label="Total properties"
-                value="—"
-                description="Properties submitted by owners"
+                value={isLoading ? "..." : String(totalProperties)}
+                icon="⌂"
               />
             </View>
           </View>
         </View>
 
-        {/* Owner directory */}
+        {/* OWNER DIRECTORY */}
         <View style={{ gap: 14 }}>
-          <View style={{ gap: 4 }}>
-            <SectionHeading
-              title="Owner directory"
-              subtitle="Find and manage registered property owners."
-            />
-          </View>
+          <SectionHeading
+            title="Owner directory"
+            subtitle="Find and manage registered property owners."
+          />
 
-          {/* Search */}
+          {/* SEARCH */}
           <View
             style={{
               minHeight: 49,
@@ -290,7 +323,7 @@ export default function Owners() {
             <Text
               style={{
                 color: colors.mutedForeground,
-                fontSize: 18,
+                fontSize: 19,
               }}
             >
               ⌕
@@ -313,7 +346,7 @@ export default function Owners() {
             />
           </View>
 
-          {/* Status filters */}
+          {/* STATUS FILTERS */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -354,7 +387,7 @@ export default function Owners() {
             })}
           </ScrollView>
 
-          {/* Directory content */}
+          {/* DIRECTORY */}
           <View
             style={{
               backgroundColor: colors.card,
@@ -388,11 +421,66 @@ export default function Owners() {
                   fontSize: 11,
                 }}
               >
-                {filteredOwners.length} owners
+                {isLoading ? "Loading..." : `${filteredOwners.length} owners`}
               </Text>
             </View>
 
-            {filteredOwners.length === 0 ? (
+            {/* LOADING STATE */}
+            {isLoading ? (
+              <View
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: 32,
+                  paddingHorizontal: 12,
+                  gap: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.mutedForeground,
+                    fontSize: 12,
+                  }}
+                >
+                  Loading Owner accounts...
+                </Text>
+              </View>
+            ) : error ? (
+              /* ERROR STATE */
+              <View
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: 32,
+                  paddingHorizontal: 12,
+                  gap: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.destructive,
+                    fontSize: 14,
+                    fontWeight: "900",
+                    textAlign: "center",
+                  }}
+                >
+                  Unable to load Owner accounts
+                </Text>
+
+                <Text
+                  style={{
+                    maxWidth: 320,
+                    color: colors.mutedForeground,
+                    fontSize: 12,
+                    lineHeight: 19,
+                    textAlign: "center",
+                  }}
+                >
+                  {error}
+                </Text>
+              </View>
+            ) : filteredOwners.length === 0 ? (
+              /* EMPTY STATE */
               <View
                 style={{
                   alignItems: "center",
@@ -431,7 +519,7 @@ export default function Owners() {
                     textAlign: "center",
                   }}
                 >
-                  {search.trim()
+                  {search.trim() || filter !== "all"
                     ? "No matching owners"
                     : "No owner records yet"}
                 </Text>
@@ -445,94 +533,145 @@ export default function Owners() {
                     textAlign: "center",
                   }}
                 >
-                  {search.trim()
-                    ? "Try another name or email address."
-                    : "Owner accounts will appear here once the owner registration and backend integration are connected."}
+                  {search.trim() || filter !== "all"
+                    ? "Try another name, email address, or status filter."
+                    : "Registered Owner accounts will appear here."}
                 </Text>
               </View>
             ) : (
+              /* OWNER RECORDS */
               <View style={{ gap: 12 }}>
                 {filteredOwners.map((owner) => (
                   <View
                     key={owner.id}
                     style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      paddingVertical: 10,
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.border,
+                      padding: 16,
+                      borderRadius: 19,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                      gap: 14,
                     }}
                   >
+                    {/* OWNER INFORMATION */}
                     <View
                       style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 15,
-                        backgroundColor: colors.secondary,
+                        flexDirection: "row",
                         alignItems: "center",
-                        justifyContent: "center",
+                        gap: 12,
                       }}
                     >
-                      <Text
+                      <View
                         style={{
-                          color: colors.primary,
-                          fontSize: 15,
-                          fontWeight: "900",
+                          width: 48,
+                          height: 48,
+                          borderRadius: 16,
+                          backgroundColor: colors.secondary,
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
                       >
-                        {owner.name.slice(0, 1).toUpperCase()}
-                      </Text>
+                        <Text
+                          style={{
+                            color: colors.primary,
+                            fontSize: 17,
+                            fontWeight: "900",
+                          }}
+                        >
+                          {owner.name.slice(0, 1).toUpperCase()}
+                        </Text>
+                      </View>
+
+                      <View style={{ flex: 1, gap: 5 }}>
+                        <Text
+                          style={{
+                            color: colors.foreground,
+                            fontSize: 13,
+                            fontWeight: "900",
+                          }}
+                        >
+                          {owner.name}
+                        </Text>
+
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            color: colors.mutedForeground,
+                            fontSize: 11,
+                          }}
+                        >
+                          {owner.email}
+                        </Text>
+                      </View>
                     </View>
 
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <Text
-                        style={{
-                          color: colors.foreground,
-                          fontSize: 12,
-                          fontWeight: "800",
-                        }}
-                      >
-                        {owner.name}
-                      </Text>
+                    <View
+                      style={{
+                        height: 1,
+                        backgroundColor: colors.border,
+                      }}
+                    />
 
-                      <Text
-                        numberOfLines={1}
-                        style={{
-                          color: colors.mutedForeground,
-                          fontSize: 10,
-                        }}
-                      >
-                        {owner.email}
-                      </Text>
-                    </View>
+                    {/* OWNER DETAILS */}
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <View style={{ gap: 5 }}>
+                        <Text
+                          style={{
+                            color: colors.mutedForeground,
+                            fontSize: 10,
+                          }}
+                        >
+                          Submitted properties
+                        </Text>
 
-                    <View style={{ alignItems: "flex-end", gap: 5 }}>
-                      <Text
-                        style={{
-                          color: colors.primary,
-                          fontSize: 11,
-                          fontWeight: "800",
-                        }}
-                      >
-                        {owner.properties} properties
-                      </Text>
+                        <Text
+                          style={{
+                            color: colors.foreground,
+                            fontSize: 13,
+                            fontWeight: "900",
+                          }}
+                        >
+                          {owner.properties}
+                        </Text>
+                      </View>
 
-                      <Text
+                      <View
                         style={{
-                          color:
-                            owner.status === "active"
-                              ? colors.primary
-                              : owner.status === "suspended"
-                                ? colors.destructive
-                                : colors.accent,
-                          fontSize: 10,
-                          fontWeight: "800",
-                          textTransform: "capitalize",
+                          alignItems: "flex-end",
+                          gap: 5,
                         }}
                       >
-                        {owner.status}
-                      </Text>
+                        <Text
+                          style={{
+                            color: colors.mutedForeground,
+                            fontSize: 10,
+                          }}
+                        >
+                          Account status
+                        </Text>
+
+                        <Text
+                          style={{
+                            color:
+                              owner.status === "active"
+                                ? colors.primary
+                                : owner.status === "suspended"
+                                  ? colors.destructive
+                                  : colors.accent,
+                            fontSize: 11,
+                            fontWeight: "900",
+                            textTransform: "capitalize",
+                          }}
+                        >
+                          {owner.status}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 ))}
@@ -541,7 +680,7 @@ export default function Owners() {
           </View>
         </View>
 
-        {/* Backend integration notice */}
+        {/* BACKEND NOTICE */}
         <View
           style={{
             flexDirection: "row",
@@ -570,7 +709,7 @@ export default function Owners() {
                 fontWeight: "900",
               }}
             >
-              Owner management is being prepared
+              Owner management
             </Text>
 
             <Text
@@ -580,8 +719,8 @@ export default function Owners() {
                 lineHeight: 17,
               }}
             >
-              This interface is frontend-only for now. Statistics and owner
-              records will be populated after the backend integration is ready.
+              Owner records and property statistics are retrieved directly from
+              Supabase.
             </Text>
           </View>
         </View>

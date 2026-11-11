@@ -31,11 +31,12 @@ export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { account } = useApp();
+  const { account, listings } = useApp();
   const myId = account?.id ?? null;
 
   const [title, setTitle] = useState("Chat");
   const [subtitle, setSubtitle] = useState<string | null>(null);
+  const [listingId, setListingId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -61,6 +62,7 @@ export default function ChatScreen() {
         if (active && c) {
           setTitle(c.otherName);
           setSubtitle(c.listingTitle);
+          setListingId(c.listingId);
         }
       })
       .catch(() => undefined);
@@ -88,6 +90,8 @@ export default function ChatScreen() {
     };
   }, [id, myId, addMessage]);
 
+  const canOpenListing = !!listingId && listings.some((x) => x.id === listingId);
+
   async function send() {
     const text = draft.trim();
     if (!text || sending || !id || !myId) return;
@@ -109,7 +113,20 @@ export default function ChatScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       className="flex-1 bg-background"
     >
-      <ModalHeader title={subtitle ? `${title} · ${subtitle}` : title} onClose={() => router.back()} />
+      <ModalHeader title={title} onClose={() => router.back()} />
+      {subtitle ? (
+        <Pressable
+          disabled={!canOpenListing}
+          onPress={() => router.push({ pathname: "/listing/[id]", params: { id: listingId! } })}
+          className="flex-row items-center gap-2 border-b border-border bg-card px-4 py-2.5 active:opacity-70"
+        >
+          <Icon name="home-outline" size={14} color={colors.primary} />
+          <Text className="flex-1 text-xs font-bold text-foreground" numberOfLines={1}>
+            {subtitle}
+          </Text>
+          {canOpenListing ? <Icon name="chevron-forward" size={14} color={colors.mutedForeground} /> : null}
+        </Pressable>
+      ) : null}
 
       {messages === null ? (
         <View className="flex-1 items-center justify-center">

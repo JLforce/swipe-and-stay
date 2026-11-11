@@ -1,8 +1,35 @@
-# Welcome to your Expo app 👋
+# Swipe & Stay
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A mobile app that helps students in Cebu find housing near their campus. Students swipe through dorms, boarding houses, apartments and condos, save the ones they like, get an AI explanation of why a listing matches them, and review lease terms before signing. Owners post their own listings, and an admin reviews them before they go live.
 
-## Get started
+Built for SD3 by Nestify Innovations.
+
+## Features
+
+**Students**
+- Sign up with email or Google, then set campus, budget, housing type, roommate preference, amenities and course.
+- Swipe deck ranked by a rules-based score that adapts to each swipe.
+- Search, saved listings with a map, and chat with owners.
+- "Why this match" explanation written by AI (with a template fallback).
+- Lease review: paste a lease and get a plain-language summary (informational only, not legal advice).
+
+**Owners**
+- Sign up as an owner and post listings with photos.
+- Every new listing, and every edit to its details, is reviewed by an admin before students can see it.
+- Dashboard with interested students and inquiries.
+
+**Admin**
+- Overview with live stats, a students list, an owners list, and listing review.
+- Reached by long-pressing the logo on the login screen.
+
+## Tech stack
+
+- Expo SDK 58, React Native, Expo Router (routes in `src/app`)
+- NativeWind (Tailwind) for styling, TypeScript
+- Supabase: Postgres with row-level security, Auth, Storage, Edge Functions (Deno)
+- Cerebras API for the AI features
+
+## Getting started
 
 1. Install dependencies
 
@@ -10,47 +37,75 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Create a `.env` file in the project root (it is git-ignored). Copy `.env.example` and fill in the project values:
 
-   ```bash
-   npx expo start
+   ```
+   EXPO_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR-ANON-KEY
    ```
 
-In the output, you'll find options to open the app in a
+3. Start the app
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+   ```bash
+   npx expo start --tunnel
+   ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+   Scan the QR code with Expo Go. Use `--clear` to reset the cache.
 
-## Get a fresh project
-
-When you're ready, run:
+Useful commands:
 
 ```bash
-npm run reset-project
+npx tsc --noEmit        # typecheck
+npx expo lint           # lint
+npx expo install <pkg>  # add a dependency (resolves a compatible version)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Project structure
 
-### Other setup steps
+```
+src/app/          Screens and navigation, grouped by role: (auth), (student), (owner), (admin)
+src/components/   Shared UI (kit.tsx), swipe deck, forms, admin and owner components
+src/lib/          App logic: auth, store, matching, search, listings, chat, API calls
+src/constants/    Brand tokens, housing types, campuses
+src/types/        Generated database types
+supabase/
+  migrations/     Database schema, policies and triggers (apply in date order)
+  functions/      Edge functions
+  seed.sql        Demo data for a fresh database
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Backend
 
-## Learn more
+Edge functions (in `supabase/functions`):
 
-To learn more about developing your project with Expo, look at the following resources:
+| Function | Purpose |
+|---|---|
+| `explain-match` | Writes the "why this matches you" text. Saved once per student and listing; limited to 30 AI calls per student per day, then falls back to a template. |
+| `submit-lease-review` | Summarizes a pasted lease. Limited to 5 per day and cached. |
+| `admin-get-stats` | Returns dashboard stats and the students list. Admin only. |
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+The AI functions need a `CEREBRAS_API_KEY` secret set in Supabase. Without it they return the template or sample result instead of failing.
 
-## Join the community
+Deploy a function:
 
-Join our community of developers creating universal apps.
+```bash
+npx supabase functions deploy <name> --project-ref <project-ref>
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Database changes
+
+- Always add a new file in `supabase/migrations` instead of editing the database by hand, so the repo and the live project stay in sync.
+- Apply migrations with `npx supabase db push`, and check them with `npx supabase migration list --linked`.
+- Run `supabase/seed.sql` only on a fresh development database.
+
+## Roles and approval flow
+
+- `student`, `owner` and `admin` are stored in `profiles.role`. Users can never change their own role.
+- New owners start as `pending`. An admin controls owner account status.
+- Owners cannot publish: new or edited listings become `pending` and hidden until an admin verifies them.
+
+## Notes
+
+- Scam analysis was dropped from the project because of free-tier AI limits.
+- Match scores are rules-based. AI is used only to write the explanation and the lease summary.
+- Never commit `.env` or any API keys.

@@ -14,7 +14,7 @@ export default function StudentLayout() {
   const { account } = useApp();
   if (!account) return <Redirect href="/login" />;
   if (account.role === "admin") return <Redirect href="/overview" />;
-  if (account.role === "owner") return <Redirect href="/my-listings" />;
+  if (account.role === "owner") return <Redirect href="/dashboard" />;
 
   return (
     <Tabs

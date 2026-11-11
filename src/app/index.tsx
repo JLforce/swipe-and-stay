@@ -12,7 +12,7 @@ const ROUTES: Record<
   onboarding: "/setup",
   studentHome: "/discover",
   adminHome: "/overview",
-  ownerHome: "/my-listings",
+  ownerHome: "/dashboard",
 };
 
 export default function Index() {

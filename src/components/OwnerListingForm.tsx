@@ -75,6 +75,7 @@ export function OwnerListingFormModal({
   defaults,
   onClose,
   onSave,
+  onDelete,
 }: {
   visible: boolean;
   ownerId: string;
@@ -83,6 +84,8 @@ export function OwnerListingFormModal({
   defaults: { landlordName: string; landlordEmail: string };
   onClose: () => void;
   onSave: (draft: ListingDraft) => Promise<void>;
+  /** Shown only when editing an existing listing. */
+  onDelete?: () => void;
 }) {
   const [title, setTitle] = useState(listing?.title ?? "");
   const [address, setAddress] = useState(listing?.area ?? "");
@@ -307,6 +310,9 @@ export function OwnerListingFormModal({
             onPress={submit}
             disabled={saving || uploading}
           />
+          {onDelete ? (
+            <Btn variant="danger" icon="trash-outline" label="Delete this listing" onPress={onDelete} disabled={saving || uploading} />
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>

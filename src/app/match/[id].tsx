@@ -74,7 +74,7 @@ export default function MatchExplanation() {
             </Card>
           ))}
           <Text className="text-center text-[11px] text-muted-foreground">
-            Rules-based adaptive matching (not machine learning).{aiText ? " The summary above is AI-generated from your preferences and this listing." : ""}
+            {aiText ? "The summary above is AI-generated from your preferences and this listing." : "Scores are based on your preferences and swipes."}
           </Text>
         </ScrollView>
       ) : (

@@ -1,4 +1,3 @@
-import { AppState as RNAppState } from "react-native";
 import {
   createContext,
   useCallback,
@@ -9,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { AppState as RNAppState } from "react-native";
 import { CAMPUSES } from "../constants/housing";
 import {
   INITIAL_NOTIFICATIONS,
@@ -22,6 +22,12 @@ import {
   type AuthAccount,
 } from "./auth";
 import {
+  fetchActiveListings,
+  persistSwipe,
+  persistUnlike,
+  SHOW_DEMO_LISTINGS,
+} from "./listings";
+import {
   DEFAULT_WEIGHTS,
   FACTORS,
   factorScores,
@@ -32,14 +38,13 @@ import {
   type Weights,
 } from "./matching";
 import {
-  fetchActiveListings,
-  persistSwipe,
-  persistUnlike,
-  SHOW_DEMO_LISTINGS,
-} from "./listings";
+  fetchNotifications,
+  markNotificationsRead,
+  mergeNotifications,
+  subscribeToNotifications,
+} from "./notifications";
 import { loadProfilePrefs, saveProfilePrefs } from "./profilePrefs";
 import { supabase } from "./supabase";
-
 const FACTOR_NAME: Record<Factor, string> = {
   price: "price",
   distance: "distance",
@@ -254,6 +259,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [isStudent]);
 
+    // Students also see their real notifications from Supabase, merged with the
+  // local ones. Everything resets when they sign out.
+  const studentId = account?.role === "student" ? account.id : null;
+
+  useEffect(() => {
+    if (!studentId) return;
+    let active = true;
+
+    fetchNotifications()
+      .then((rows) => {
+        if (active && rows.length > 0)
+          setNotifications((cur) => mergeNotifications(rows, cur));
+      })
+      .catch((e: unknown) => console.warn("Could not load notifications", e));
+
+    const unsubscribe = subscribeToNotifications(studentId, (n) => {
+      if (active) setNotifications((cur) => mergeNotifications([n], cur));
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+      setNotifications(INITIAL_NOTIFICATIONS);
+    };
+  }, [studentId]);
+
   const swipe = useCallback(
     (l: Listing, dir: "left" | "right") => {
       if (account?.role === "student") void persistSwipe(account.id, l.id, dir);
@@ -362,27 +393,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
           });
         }
       },
-      markAllRead: () =>
-        setNotifications((cur) => cur.map((n) => ({ ...n, read: true }))),
+      markAllRead: () => {
+        if (!notifications.some((n) => !n.read)) return;
+        setNotifications((cur) => cur.map((n) => ({ ...n, read: true })));
+        if (studentId) void markNotificationsRead(studentId);
+      },
       notify: pushNote,
       flash,
     }),
     [
-      account,
-      authLoading,
-      onboarded,
-      prefs,
-      weights,
-      listings,
-      swipes,
-      likedIds,
-      notifications,
-      toast,
-      swipe,
-      undoSwipe,
-      flash,
-      pushNote,
-      clearSession,
+    account,
+    authLoading,
+    onboarded,
+    prefs,
+    weights,
+    listings,
+    swipes,
+    likedIds,
+    notifications,
+    studentId,
+    toast,
+    swipe,
+    undoSwipe,
+    flash,
+    pushNote,
+    clearSession,
     ],
   );
 

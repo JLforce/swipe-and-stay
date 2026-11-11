@@ -8,7 +8,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   View,
@@ -101,7 +100,6 @@ export function OwnerListingFormModal({
   const [phone, setPhone] = useState(listing?.landlord.phone ?? "");
   const [email, setEmail] = useState(listing?.landlord.email ?? defaults.landlordEmail);
   const [photos, setPhotos] = useState<string[]>(listing?.photoUrls ?? []);
-  const [live, setLive] = useState(listing?.active ?? false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,8 +152,8 @@ export function OwnerListingFormModal({
     if (!Number.isInteger(slotsN) || slotsN < 0) return setError("Slots left must be 0 or more.");
     if (!Number.isFinite(latN) || latN < -90 || latN > 90) return setError("Latitude must be between -90 and 90.");
     if (!Number.isFinite(lngN) || lngN < -180 || lngN > 180) return setError("Longitude must be between -180 and 180.");
-    if (live && photos.length === 0) return setError("Add at least one photo before making the listing live.");
-    if (live && !phone.trim() && !email.trim()) return setError("Add a phone number or email so students can reach you.");
+    if (photos.length === 0) return setError("Add at least one photo so the admin can review your listing.");
+    if (!phone.trim() && !email.trim()) return setError("Add a phone number or email so students can reach you.");
 
     setError(null);
     setSaving(true);
@@ -175,7 +173,8 @@ export function OwnerListingFormModal({
         landlordPhone: phone.trim(),
         landlordEmail: email.trim(),
         photoUrls: photos,
-        isActive: live,
+        // Owners cannot publish; an admin approves the listing first.
+        isActive: listing?.active ?? false,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the listing.");
@@ -286,18 +285,11 @@ export function OwnerListingFormModal({
             Students only see your phone and email after they save your listing. They can also message you in the app.
           </Text>
 
-          <View className="flex-row items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
-            <View className="flex-1 pr-3">
-              <Text className="text-sm font-bold text-foreground">Visible to students</Text>
-              <Text className="text-[11px] text-muted-foreground">
-                {live ? "Live: students can swipe on this listing." : "Draft: only you can see this listing."}
-              </Text>
-            </View>
-            <Switch
-              value={live}
-              onValueChange={setLive}
-              trackColor={{ true: colors.primary }}
-            />
+          <View className="rounded-2xl border border-border bg-card px-4 py-3">
+            <Text className="text-sm font-bold text-foreground">Reviewed by an admin</Text>
+            <Text className="text-[11px] text-muted-foreground">
+              Your listing goes live for students once an admin approves it. Editing the details sends it for review again.
+            </Text>
           </View>
 
           {error ? (
@@ -306,7 +298,7 @@ export function OwnerListingFormModal({
             </Text>
           ) : null}
           <Btn
-            label={saving ? "Saving..." : listing ? "Save changes" : live ? "Post listing" : "Save as draft"}
+            label={saving ? "Saving..." : listing ? "Save changes" : "Submit for review"}
             onPress={submit}
             disabled={saving || uploading}
           />

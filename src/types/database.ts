@@ -212,6 +212,8 @@ export type Database = {
           photo_urls: string[]
           price: number
           slots_left: number
+          verification_status: string | null
+          rejection_reason: string | null
           title: string
           type: string
           updated_at: string
@@ -234,6 +236,8 @@ export type Database = {
           photo_urls?: string[]
           price: number
           slots_left?: number
+          verification_status?: string | null
+          rejection_reason?: string | null
           title: string
           type: string
           updated_at?: string
@@ -256,6 +260,8 @@ export type Database = {
           photo_urls?: string[]
           price?: number
           slots_left?: number
+          verification_status?: string | null
+          rejection_reason?: string | null
           title?: string
           type?: string
           updated_at?: string

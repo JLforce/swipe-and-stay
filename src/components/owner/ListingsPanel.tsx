@@ -37,8 +37,7 @@ function Pill({
 
 export function ListingsPanel() {
   const { account, flash } = useApp();
-  const { listings, loading, saveListing, setActive, removeListing } = useOwner();
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const { listings, loading, saveListing, removeListing } = useOwner();
   const [form, setForm] = useState<{ open: boolean; listing: Listing | null; key: number }>({
     open: false,
     listing: null,
@@ -46,26 +45,6 @@ export function ListingsPanel() {
   });
 
   if (!account) return null;
-
-  async function toggle(l: Listing) {
-    setBusyId(l.id);
-    try {
-      await setActive(l.id, !l.active);
-      flash(l.active ? "Listing deactivated" : "Listing is live again");
-    } catch (e) {
-      Alert.alert("Could not update", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  function confirmToggle(l: Listing) {
-    if (!l.active) return void toggle(l);
-    Alert.alert("Deactivate listing?", `${l.title} will be hidden from students. Chats you already have stay open.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Deactivate", style: "destructive", onPress: () => void toggle(l) },
-    ]);
-  }
 
   function confirmDelete(l: Listing) {
     Alert.alert("Delete listing?", `${l.title} and its chats will be removed for good. To only hide it, use Deactivate.`, [
@@ -110,21 +89,23 @@ export function ListingsPanel() {
             <View className="mt-1 flex-row flex-wrap items-center gap-1.5">
               <Tag tone="primary">{`${peso(l.price)}/mo`}</Tag>
               <Tag>{l.type}</Tag>
-              <Tag tone={l.active ? "accent" : "danger"}>{l.active ? "Live" : "Inactive"}</Tag>
+              {l.verification === "rejected" ? (
+                <Tag tone="danger">Rejected</Tag>
+              ) : l.verification === "pending" ? (
+                <Tag>Pending review</Tag>
+              ) : (
+                <Tag tone={l.active ? "accent" : "danger"}>{l.active ? "Live" : "Inactive"}</Tag>
+              )}
             </View>
+            {l.verification === "rejected" && l.rejectionReason ? (
+              <Text className="mt-1 text-[11px] text-destructive">Reason: {l.rejectionReason}</Text>
+            ) : null}
             <View className="mt-2 flex-row gap-2">
               <Pill
                 filled
                 icon="pencil"
                 label="Edit"
-                disabled={busyId === l.id}
                 onPress={() => setForm({ open: true, listing: l, key: Date.now() })}
-              />
-              <Pill
-                icon={l.active ? "eye-off-outline" : "eye-outline"}
-                label={l.active ? "Deactivate" : "Activate"}
-                disabled={busyId === l.id}
-                onPress={() => confirmToggle(l)}
               />
             </View>
           </View>
@@ -146,7 +127,7 @@ export function ListingsPanel() {
           onDelete={form.listing ? () => confirmDelete(form.listing!) : undefined}
           onSave={async (draft) => {
             await saveListing(draft, form.listing?.id);
-            flash(form.listing ? "Changes saved" : draft.isActive ? "Listing posted" : "Draft saved");
+            flash(form.listing ? "Changes saved" : "Submitted for review");
             setForm((f) => ({ ...f, open: false }));
           }}
         />

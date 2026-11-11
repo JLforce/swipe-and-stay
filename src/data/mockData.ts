@@ -21,6 +21,9 @@ export interface Listing {
   description: string;
   slotsLeft: number;
   active: boolean;
+  /** Admin review state for owner listings (null for demo listings). */
+  verification?: "pending" | "verified" | "rejected" | null;
+  rejectionReason?: string | null;
   coords: { lat: number; lng: number };
   /** Real photos from Supabase Storage. Demo listings leave this empty and use `photo`. */
   photoUrls?: string[];

@@ -66,6 +66,8 @@ export function rowToListing(row: ListingRow): Listing {
     description: row.description ?? "",
     slotsLeft: row.slots_left,
     active: row.is_active,
+    verification: (row.verification_status as Listing["verification"]) ?? null,
+    rejectionReason: row.rejection_reason ?? null,
     coords: { lat: Number(row.lat), lng: Number(row.lng) },
     photoUrls: row.photo_urls ?? [],
     ownerId: row.created_by,

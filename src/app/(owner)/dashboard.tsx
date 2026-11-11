@@ -1,7 +1,6 @@
-import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppHeader } from "../../components/AppHeader";
 import { Icon, type IconName } from "../../components/kit";
 import { InquiriesPanel } from "../../components/owner/InquiriesPanel";
 import { ListingsPanel } from "../../components/owner/ListingsPanel";
@@ -10,7 +9,6 @@ import { OwnerStatsGrid, OwnerTip } from "../../components/OwnerStats";
 import { colors } from "../../constants/brand";
 import { cn } from "../../lib/cn";
 import { useOwner } from "../../lib/owner";
-import { useApp } from "../../lib/store";
 
 type TabId = "listings" | "students" | "inquiries";
 
@@ -21,9 +19,6 @@ const TABS: { id: TabId; label: string; icon: IconName }[] = [
 ];
 
 export default function OwnerDashboard() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { account, signOut } = useApp();
   const { refresh } = useOwner();
   const [tab, setTab] = useState<TabId>("listings");
   const [refreshing, setRefreshing] = useState(false);
@@ -31,31 +26,7 @@ export default function OwnerDashboard() {
 
   return (
     <View className="flex-1 bg-background">
-      <View style={{ paddingTop: insets.top + 8 }} className="flex-row items-center justify-between gap-3 px-4 pb-3">
-        <View className="min-w-0 flex-1 flex-row items-center gap-2">
-          <View className="h-9 w-9 items-center justify-center rounded-2xl bg-primary">
-            <Icon name="business" size={16} color={colors.primaryForeground} />
-          </View>
-          <View className="min-w-0 flex-1">
-            <Text className="text-base font-extrabold leading-none text-foreground" numberOfLines={1}>
-              Owner dashboard
-            </Text>
-            <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>
-              {account?.name ?? "Owner"} · Cebu City
-            </Text>
-          </View>
-        </View>
-        <Pressable
-          onPress={() => {
-            signOut();
-            router.replace("/login");
-          }}
-          accessibilityLabel="Sign out"
-          className="h-10 w-10 items-center justify-center rounded-full border border-border bg-card active:opacity-70"
-        >
-          <Icon name="log-out-outline" size={18} />
-        </Pressable>
-      </View>
+      <AppHeader owner title="Dashboard" />
 
       <ScrollView
         contentContainerClassName="gap-4 px-4 pb-12"

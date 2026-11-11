@@ -117,4 +117,10 @@ WHERE NOT EXISTS (
 )
 ON CONFLICT (id) DO NOTHING;
 
+-- 3. Demo listings are published, so mark them verified (new rows default to 'pending').
+UPDATE public.listings
+SET verification_status = 'verified'
+WHERE is_active = true
+  AND verification_status IS DISTINCT FROM 'verified';
+
 COMMIT;

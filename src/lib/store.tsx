@@ -37,6 +37,7 @@ import {
   persistUnlike,
   SHOW_DEMO_LISTINGS,
 } from "./listings";
+import { loadProfilePrefs, saveProfilePrefs } from "./profilePrefs";
 import { supabase } from "./supabase";
 
 const FACTOR_NAME: Record<Factor, string> = {
@@ -138,6 +139,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     accountIdRef.current = acc.id;
     setAccount(acc);
     setOnboarded(acc.onboardingCompleted);
+    // Bring back the preferences this student saved. If they finished onboarding before
+    // preferences were saved, ask them to confirm their choices once.
+    if (acc.role === "student") {
+      loadProfilePrefs(acc.id, DEFAULT_PREFS)
+        .then(({ prefs: saved, hasCampus }) => {
+          if (accountIdRef.current !== acc.id) return;
+          setPrefs(saved);
+          if (acc.onboardingCompleted && !hasCampus) setOnboarded(false);
+        })
+        .catch(() => undefined);
+    }
   }, []);
 
   // Clears everything that belongs to the signed-in user.
@@ -306,17 +318,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!account) return;
         // Remember in the database that this student finished onboarding,
         // so the next sign-in goes straight to /discover.
-        supabase
-          .from("profiles")
-          .update({ onboarding_completed: true })
-          .eq("id", account.id)
-          .then(({ error }) => {
-            if (error) {
-              console.warn("Could not save onboarding status", error);
-              setOnboarded(false);
-              flash("Could not save your preferences. Please try again.");
-            }
-          });
+        saveProfilePrefs(account.id, p).catch((error: unknown) => {
+          console.warn("Could not save preferences", error);
+          setOnboarded(false);
+          flash("Could not save your preferences. Please try again.");
+        });
       },
       swipe,
       undoSwipe,

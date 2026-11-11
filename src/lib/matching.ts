@@ -16,6 +16,8 @@ export interface Prefs {
   housingType: HousingType | "Any";
   roommate: RoommatePref;
   desiredAmenities: string[];
+  /** Course or program, saved to the profile so the admin can see it. Optional. */
+  program?: string;
 }
 
 export interface Weights {

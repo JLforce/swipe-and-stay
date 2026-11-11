@@ -1,10 +1,13 @@
-import { Linking, ScrollView, Text, View } from "react-native";
+import { Alert, Linking, ScrollView, Text, TextInput, View } from "react-native";
+import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ModalHeader } from "../../components/AppHeader";
 import { Btn, Card, Icon, Meter, Photo, SectionTitle, Tag } from "../../components/kit";
 import { colors } from "../../constants/brand";
 import { SAFETY_CHECKLIST } from "../../data/mockData";
+import { startConversation } from "../../lib/chat";
 import { peso } from "../../lib/format";
+import { isDatabaseId } from "../../lib/listings";
 import { commuteMinutes } from "../../lib/geo";
 import { distanceKm, matchScore } from "../../lib/matching";
 import { useApp } from "../../lib/store";
@@ -14,6 +17,9 @@ export default function ListingDetail() {
   const router = useRouter();
   const { listings, prefs, weights, likedIds, like, unlike, flash } = useApp();
   const l = listings.find((x) => x.id === id);
+  const [composing, setComposing] = useState(false);
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
 
   if (!l) {
     return (
@@ -32,8 +38,14 @@ export default function ListingDetail() {
     <View className="flex-1 bg-background">
       <ModalHeader title={l.title} onClose={() => router.back()} />
       <ScrollView contentContainerClassName="gap-5 p-5 pb-12">
-        <Photo gradient={l.photo} className="h-48 w-full rounded-3xl" label="Photo placeholder" />
-        {l.gallery.length > 0 ? (
+        <Photo gradient={l.photo} uri={l.photoUrls?.[0]} className="h-48 w-full rounded-3xl" label={l.photoUrls?.length ? undefined : "Photo placeholder"} />
+        {l.photoUrls && l.photoUrls.length > 1 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
+            {l.photoUrls.slice(1).map((u) => (
+              <Photo key={u} gradient={l.photo} uri={u} className="h-16 w-24 rounded-2xl" />
+            ))}
+          </ScrollView>
+        ) : l.gallery.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
             {l.gallery.map((g, i) => (
               <Photo key={i} gradient={g} className="h-16 w-24 rounded-2xl" />
@@ -87,6 +99,7 @@ export default function ListingDetail() {
           </View>
         </View>
 
+        {l.safety.notes.length > 0 ? (
         <Card className="gap-2">
           <View className="flex-row items-center gap-2">
             <Icon name="shield-checkmark-outline" size={16} color={colors.primary} />
@@ -99,6 +112,7 @@ export default function ListingDetail() {
             </Text>
           ))}
         </Card>
+        ) : null}
 
         <Card className="gap-3">
           <View className="flex-row items-center gap-3">
@@ -111,6 +125,46 @@ export default function ListingDetail() {
             </View>
             {l.landlord.verified ? <Tag tone="primary" icon="checkmark-circle">Verified</Tag> : <Tag tone="danger" icon="warning">Unverified</Tag>}
           </View>
+          {isDatabaseId(l.id) && l.active ? (
+            composing ? (
+              <View className="gap-2">
+                <TextInput
+                  value={message}
+                  onChangeText={setMessage}
+                  placeholder="Hi! Is this still available?"
+                  placeholderTextColor={colors.mutedForeground}
+                  multiline
+                  maxLength={2000}
+                  className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground"
+                  style={{ minHeight: 70, textAlignVertical: "top" }}
+                />
+                <View className="flex-row gap-2">
+                  <Btn variant="outline" label="Cancel" className="flex-1" disabled={sending} onPress={() => setComposing(false)} />
+                  <Btn
+                    icon="send"
+                    label={sending ? "Sending..." : "Send"}
+                    className="flex-1"
+                    disabled={sending || message.trim().length === 0}
+                    onPress={() => {
+                      setSending(true);
+                      startConversation(l.id, message)
+                        .then((conversationId) => {
+                          setComposing(false);
+                          setMessage("");
+                          router.push({ pathname: "/chat/[id]", params: { id: conversationId } });
+                        })
+                        .catch((e: unknown) =>
+                          Alert.alert("Could not send", e instanceof Error ? e.message : "Please try again."),
+                        )
+                        .finally(() => setSending(false));
+                    }}
+                  />
+                </View>
+              </View>
+            ) : (
+              <Btn variant="soft" icon="chatbubble-ellipses-outline" label="Message owner" onPress={() => setComposing(true)} />
+            )
+          ) : null}
           {liked ? (
             <View className="gap-2">
               <View className="flex-row gap-2">

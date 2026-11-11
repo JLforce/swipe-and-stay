@@ -5,8 +5,8 @@ import { colors } from "../constants/brand";
 import { useApp } from "../lib/store";
 import { Icon, Logo } from "./kit";
 
-/** Header used by both tab layouts. Students get a notification bell; admins get sign out. */
-export function AppHeader({ title, admin }: { title: string; admin?: boolean }) {
+/** Header used by the tab layouts. Students get a notification bell; admins and owners get sign out. */
+export function AppHeader({ title, admin, owner }: { title: string; admin?: boolean; owner?: boolean }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { unreadCount, signOut } = useApp();
@@ -17,9 +17,9 @@ export function AppHeader({ title, admin }: { title: string; admin?: boolean }) 
       className="flex-row items-center justify-between bg-background px-4 pb-3"
     >
       <View>
-        <Logo subtitle={admin ? `Admin · ${title}` : title} />
+        <Logo subtitle={admin ? `Admin · ${title}` : owner ? `Owner · ${title}` : title} />
       </View>
-      {admin ? (
+      {admin || owner ? (
         <Pressable
           onPress={() => {
             signOut();
@@ -31,16 +31,25 @@ export function AppHeader({ title, admin }: { title: string; admin?: boolean }) 
           <Icon name="log-out-outline" size={18} />
         </Pressable>
       ) : (
-        <Pressable
-          onPress={() => router.push("/notifications")}
-          accessibilityLabel="Notifications"
-          className="h-10 w-10 items-center justify-center rounded-full border border-border bg-card active:opacity-70"
-        >
-          <Icon name="notifications-outline" size={18} />
-          {unreadCount > 0 ? (
-            <View className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-accent" />
-          ) : null}
-        </Pressable>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={() => router.push("/messages")}
+            accessibilityLabel="Messages"
+            className="h-10 w-10 items-center justify-center rounded-full border border-border bg-card active:opacity-70"
+          >
+            <Icon name="chatbubble-ellipses-outline" size={18} />
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/notifications")}
+            accessibilityLabel="Notifications"
+            className="h-10 w-10 items-center justify-center rounded-full border border-border bg-card active:opacity-70"
+          >
+            <Icon name="notifications-outline" size={18} />
+            {unreadCount > 0 ? (
+              <View className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-accent" />
+            ) : null}
+          </Pressable>
+        </View>
       )}
     </View>
   );

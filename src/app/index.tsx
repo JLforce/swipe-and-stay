@@ -5,13 +5,14 @@ import { useApp } from "../lib/store";
 
 // Change these four if your route names differ.
 const ROUTES: Record<
-  "intro" | "onboarding" | "studentHome" | "adminHome",
+  "intro" | "onboarding" | "studentHome" | "adminHome" | "ownerHome",
   Href
 > = {
   intro: "/intro",
   onboarding: "/setup",
   studentHome: "/discover",
   adminHome: "/overview",
+  ownerHome: "/dashboard",
 };
 
 export default function Index() {
@@ -28,5 +29,6 @@ export default function Index() {
 
   if (!account) return <Redirect href={ROUTES.intro} />;
   if (account.role === "admin") return <Redirect href={ROUTES.adminHome} />;
+  if (account.role === "owner") return <Redirect href={ROUTES.ownerHome} />;
   return <Redirect href={onboarded ? ROUTES.studentHome : ROUTES.onboarding} />;
 }

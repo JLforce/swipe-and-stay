@@ -44,6 +44,79 @@ export type Database = {
         }
         Relationships: []
       }
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          last_message_at: string
+          listing_id: string
+          owner_id: string
+          student_id: string
+          student_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          listing_id: string
+          owner_id: string
+          student_id: string
+          student_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          listing_id?: string
+          owner_id?: string
+          student_id?: string
+          student_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          read_at: string | null
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lease_reviews: {
         Row: {
           completed_at: string | null
@@ -138,6 +211,9 @@ export type Database = {
           occupancy: string | null
           photo_urls: string[]
           price: number
+          slots_left: number
+          verification_status: string | null
+          rejection_reason: string | null
           title: string
           type: string
           updated_at: string
@@ -159,6 +235,9 @@ export type Database = {
           occupancy?: string | null
           photo_urls?: string[]
           price: number
+          slots_left?: number
+          verification_status?: string | null
+          rejection_reason?: string | null
           title: string
           type: string
           updated_at?: string
@@ -180,6 +259,9 @@ export type Database = {
           occupancy?: string | null
           photo_urls?: string[]
           price?: number
+          slots_left?: number
+          verification_status?: string | null
+          rejection_reason?: string | null
           title?: string
           type?: string
           updated_at?: string
@@ -456,6 +538,36 @@ export type Database = {
       is_active_owner: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_owner: { Args: never; Returns: boolean }
+      claim_owner_role: { Args: never; Returns: string }
+      start_conversation: {
+        Args: { p_body: string; p_listing_id: string }
+        Returns: string
+      }
+      my_conversations: {
+        Args: never
+        Returns: {
+          id: string
+          last_at: string
+          last_body: string | null
+          last_from_me: boolean
+          listing_id: string
+          listing_title: string
+          other_name: string
+          unread_count: number
+        }[]
+      }
+      owner_dashboard_stats: { Args: never; Returns: Json }
+      owner_interested_students: {
+        Args: never
+        Returns: {
+          campus: string | null
+          full_name: string
+          joined_at: string
+          last_activity: string
+          saved_count: number
+          swipe_count: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

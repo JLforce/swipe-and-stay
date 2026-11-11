@@ -1,19 +1,17 @@
 import type { HousingType } from "../constants/housing";
 import type { Listing } from "../data/mockData";
-import type { Database } from "../types/database";
+import type { Tables, TablesInsert } from "../types/database";
 import { supabase } from "./supabase";
 
-type ListingInsert = Database["public"]["Tables"]["listings"]["Insert"];
-type ListingUpdate = Database["public"]["Tables"]["listings"]["Update"];
-type ListingRow = Database["public"]["Tables"]["listings"]["Row"];
+type ListingRow = Tables<"listings">;
 
-// The app shows readable labels; the database stores these four values only.
-const TYPE_TO_DB: Record<HousingType, string> = {
-  Dormitory: "dorm",
-  "Boarding House": "boarding_house",
-  Apartment: "apartment",
-  Condo: "condo",
-};
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Demo listings use ids like "l1". Only database listings have UUIDs. */
+export function isDatabaseId(id: string): boolean {
+  return UUID_RE.test(id);
+}
 
 const TYPE_FROM_DB: Record<string, HousingType> = {
   dorm: "Dormitory",
@@ -22,10 +20,30 @@ const TYPE_FROM_DB: Record<string, HousingType> = {
   condo: "Condo",
 };
 
-// Stand-in picture until photo upload (Supabase Storage) is built.
-const DEFAULT_GRADIENT = "from-emerald-700 via-teal-600 to-emerald-400";
+const TYPE_TO_DB: Record<HousingType, string> = {
+  Dormitory: "dorm",
+  "Boarding House": "boarding_house",
+  Apartment: "apartment",
+  Condo: "condo",
+};
 
-/** Turns a database row into the Listing shape the screens already use. */
+// Listings without photos still need a colored card. Pick one from the id so
+// the same listing always gets the same color.
+const GRADIENTS = [
+  "from-emerald-700 via-teal-600 to-emerald-400",
+  "from-orange-500 via-rose-400 to-amber-200",
+  "from-teal-700 via-cyan-600 to-emerald-300",
+  "from-emerald-800 via-green-600 to-amber-300",
+  "from-stone-700 via-amber-600 to-orange-300",
+  "from-cyan-800 via-teal-600 to-orange-300",
+];
+
+function gradientFor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  return GRADIENTS[Math.abs(hash) % GRADIENTS.length]!;
+}
+
 export function rowToListing(row: ListingRow): Listing {
   return {
     id: row.id,
@@ -34,147 +52,216 @@ export function rowToListing(row: ListingRow): Listing {
     type: TYPE_FROM_DB[row.type] ?? "Boarding House",
     price: Number(row.price),
     amenities: row.amenities ?? [],
-    photo: DEFAULT_GRADIENT,
-    gallery: row.photo_urls ?? [],
-    // No database columns exist for these four values yet.
+    photo: gradientFor(row.id),
+    gallery: [],
     safety: { score: 0, notes: [] },
     landlord: {
       name: row.landlord_name ?? "",
       verified: false,
-      responseTime: "",
+      responseTime: "when available",
       phone: row.landlord_phone ?? "",
       email: row.landlord_email ?? "",
     },
-    occupancy: row.occupancy === "shared" ? "shared" : "solo",
+    occupancy: row.occupancy === "solo" ? "solo" : "shared",
     description: row.description ?? "",
-    slotsLeft: 0,
+    slotsLeft: row.slots_left,
     active: row.is_active,
+    verification: (row.verification_status as Listing["verification"]) ?? null,
+    rejectionReason: row.rejection_reason ?? null,
     coords: { lat: Number(row.lat), lng: Number(row.lng) },
+    photoUrls: row.photo_urls ?? [],
+    ownerId: row.created_by,
   };
 }
 
-/**
- * Columns for a NEW listing. The id and created_by are never sent:
- * the database creates the id and a trigger sets the owner.
- */
-export function listingToInsert(l: Listing, isActive: boolean): ListingInsert {
+/** What the owner types into the form. */
+export interface ListingDraft {
+  title: string;
+  address: string;
+  price: number;
+  type: HousingType;
+  occupancy: "solo" | "shared";
+  amenities: string[];
+  description: string;
+  lat: number;
+  lng: number;
+  slotsLeft: number;
+  landlordName: string;
+  landlordPhone: string;
+  landlordEmail: string;
+  photoUrls: string[];
+  isActive: boolean;
+}
+
+function draftToRow(d: ListingDraft): TablesInsert<"listings"> {
   return {
-    title: l.title,
-    address: l.area,
-    price: l.price,
-    type: TYPE_TO_DB[l.type],
-    occupancy: l.occupancy,
-    lat: l.coords.lat,
-    lng: l.coords.lng,
-    amenities: l.amenities,
-    description: l.description || null,
-    landlord_name: l.landlord.name || null,
-    landlord_phone: l.landlord.phone || null,
-    landlord_email: l.landlord.email || null,
-    is_active: isActive,
+    title: d.title,
+    address: d.address,
+    price: d.price,
+    type: TYPE_TO_DB[d.type],
+    occupancy: d.occupancy,
+    amenities: d.amenities,
+    description: d.description || null,
+    lat: d.lat,
+    lng: d.lng,
+    slots_left: d.slotsLeft,
+    landlord_name: d.landlordName || null,
+    landlord_phone: d.landlordPhone || null,
+    landlord_email: d.landlordEmail || null,
+    photo_urls: d.photoUrls,
+    is_active: d.isActive,
   };
 }
 
-/** Columns for EDITING a listing (status and photos are changed elsewhere). */
-export function listingToUpdate(l: Listing): ListingUpdate {
-  return {
-    title: l.title,
-    address: l.area,
-    price: l.price,
-    type: TYPE_TO_DB[l.type],
-    occupancy: l.occupancy,
-    lat: l.coords.lat,
-    lng: l.coords.lng,
-    amenities: l.amenities,
-    description: l.description || null,
-    landlord_name: l.landlord.name || null,
-    landlord_phone: l.landlord.phone || null,
-    landlord_email: l.landlord.email || null,
-  };
-}
-
-/**
- * Fetch listings visible to the currently authenticated user.
- * Supabase RLS determines which records can be returned.
- */
-export async function fetchListings(): Promise<ListingRow[]> {
+/** Listings students can swipe on. */
+export async function fetchActiveListings(): Promise<Listing[]> {
   const { data, error } = await supabase
     .from("listings")
     .select("*")
-    .order("created_at", { ascending: false });
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(200);
 
-  if (error) {
-    throw new Error(`Failed to fetch listings: ${error.message}`);
-  }
-
-  return data ?? [];
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(rowToListing);
 }
 
-/**
- * Fetch only the listings created by this admin (drafts included).
- * RLS also lets admins read every active listing, so we filter by owner.
- */
-export async function fetchMyListings(userId: string): Promise<ListingRow[]> {
+/** The signed-in owner's own listings, including drafts and inactive ones. */
+export async function fetchMyListings(ownerId: string): Promise<Listing[]> {
   const { data, error } = await supabase
     .from("listings")
     .select("*")
-    .eq("created_by", userId)
+    .eq("created_by", ownerId)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    throw new Error(`Failed to fetch your listings: ${error.message}`);
-  }
-
-  return data ?? [];
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(rowToListing);
 }
 
-/**
- * Create a listing.
- * The database generates its UUID and assigns created_by through its trigger.
- */
-export async function createListing(
-  listing: ListingInsert,
-): Promise<ListingRow> {
+export async function createListing(draft: ListingDraft): Promise<Listing> {
   const { data, error } = await supabase
     .from("listings")
-    .insert(listing)
+    .insert(draftToRow(draft))
     .select("*")
     .single();
 
-  if (error) {
-    throw new Error(`Failed to create listing: ${error.message}`);
-  }
-
-  return data;
+  if (error) throw new Error(error.message);
+  return rowToListing(data);
 }
 
-/**
- * Update an existing listing by its database UUID.
- */
 export async function updateListing(
   id: string,
-  changes: ListingUpdate,
-): Promise<ListingRow> {
+  draft: ListingDraft,
+): Promise<Listing> {
   const { data, error } = await supabase
     .from("listings")
-    .update(changes)
+    .update(draftToRow(draft))
     .eq("id", id)
     .select("*")
     .single();
 
-  if (error) {
-    throw new Error(`Failed to update listing: ${error.message}`);
-  }
+  if (error) throw new Error(error.message);
+  return rowToListing(data);
+}
 
-  return data;
+export async function setListingActive(
+  id: string,
+  active: boolean,
+): Promise<Listing> {
+  const { data, error } = await supabase
+    .from("listings")
+    .update({ is_active: active })
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return rowToListing(data);
+}
+
+export async function deleteListing(id: string): Promise<void> {
+  const { error } = await supabase.from("listings").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 /**
- * Change a listing's active status.
+ * Keep the sample listings next to real owner listings while the pilot has few
+ * real ones. Set to false to show only listings posted by owners.
  */
-export async function setListingActive(
-  id: string,
-  isActive: boolean,
-): Promise<ListingRow> {
-  return updateListing(id, { is_active: isActive });
+export const SHOW_DEMO_LISTINGS = true;
+
+/**
+ * Best-effort save of a student's swipe so owners can see interest.
+ * Never throws: the swipe already worked on screen.
+ * (Students may only change unliked_at later, so a changed mind from
+ * left to right on the same listing is not stored.)
+ */
+export async function persistSwipe(
+  userId: string,
+  listingId: string,
+  direction: "left" | "right",
+): Promise<void> {
+  if (!isDatabaseId(listingId)) return;
+
+  const { error } = await supabase
+    .from("swipes")
+    .insert({ user_id: userId, listing_id: listingId, direction });
+
+  if (error && error.code === "23505" && direction === "right") {
+    // Already swiped before; if it was an unliked right swipe, count it again.
+    await supabase
+      .from("swipes")
+      .update({ unliked_at: null })
+      .eq("user_id", userId)
+      .eq("listing_id", listingId)
+      .eq("direction", "right");
+  } else if (error && error.code !== "23505") {
+    console.warn("Could not save swipe", error.message);
+  }
+}
+
+/** Best-effort: a student removed a saved listing. */
+export async function persistUnlike(
+  userId: string,
+  listingId: string,
+): Promise<void> {
+  if (!isDatabaseId(listingId)) return;
+
+  const { error } = await supabase
+    .from("swipes")
+    .update({ unliked_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("listing_id", listingId)
+    .eq("direction", "right");
+
+  if (error) console.warn("Could not save unlike", error.message);
+}
+
+export const MAX_LISTING_PHOTOS = 6;
+
+/**
+ * Uploads one photo to the public listing-photos bucket, inside a folder named
+ * after the owner (the storage policy requires that), and returns its URL.
+ */
+export async function uploadListingPhoto(
+  ownerId: string,
+  uri: string,
+  mimeType?: string | null,
+): Promise<string> {
+  const type = mimeType && mimeType.startsWith("image/") ? mimeType : "image/jpeg";
+  const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+  const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = `${ownerId}/${name}`;
+
+  const response = await fetch(uri);
+  const bytes = await response.arrayBuffer();
+
+  const { error } = await supabase.storage
+    .from("listing-photos")
+    .upload(path, bytes, { contentType: type, upsert: false });
+
+  if (error) throw new Error(error.message);
+
+  return supabase.storage.from("listing-photos").getPublicUrl(path).data
+    .publicUrl;
 }

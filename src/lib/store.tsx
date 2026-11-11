@@ -1,3 +1,4 @@
+import { AppState as RNAppState } from "react-native";
 import {
   createContext,
   useCallback,
@@ -30,6 +31,12 @@ import {
   type Prefs,
   type Weights,
 } from "./matching";
+import {
+  fetchActiveListings,
+  persistSwipe,
+  persistUnlike,
+  SHOW_DEMO_LISTINGS,
+} from "./listings";
 import { supabase } from "./supabase";
 
 const FACTOR_NAME: Record<Factor, string> = {
@@ -198,8 +205,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [applyAccount, clearSession]);
 
+  // Students see listings owners posted, loaded from Supabase. They refresh
+  // when the student signs in, when the app returns to the foreground, and
+  // when an owner publishes a listing.
+  const isStudent = account?.role === "student";
+
+  useEffect(() => {
+    if (!isStudent) return;
+    let active = true;
+
+    const load = () =>
+      fetchActiveListings()
+        .then((real) => {
+          if (active) setListings(SHOW_DEMO_LISTINGS ? [...real, ...LISTINGS] : real);
+        })
+        .catch((e: unknown) => console.warn("Could not load listings", e));
+
+    void load();
+
+    const appState = RNAppState.addEventListener("change", (s) => {
+      if (s === "active") void load();
+    });
+    const channel = supabase
+      .channel("listings-feed")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "listings" },
+        () => void load(),
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      appState.remove();
+      supabase.removeChannel(channel);
+    };
+  }, [isStudent]);
+
   const swipe = useCallback(
     (l: Listing, dir: "left" | "right") => {
+      if (account?.role === "student") void persistSwipe(account.id, l.id, dir);
       const nextWeights = updateWeights(weights, factorScores(l, prefs), dir);
       const count = swipes.length + 1;
       setSwipes((s) => [
@@ -221,18 +266,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [prefs, weights, swipes.length, pushNote],
+    [account, prefs, weights, swipes.length, pushNote],
   );
 
   const undoSwipe = useCallback(() => {
     setSwipes((s) => {
       const last = s[s.length - 1];
       if (!last) return s;
-      if (last.direction === "right")
+      if (last.direction === "right") {
         setLikedIds((ids) => ids.filter((x) => x !== last.listingId));
+        if (account?.role === "student") void persistUnlike(account.id, last.listingId);
+      }
       return s.slice(0, -1);
     });
-  }, []);
+  }, [account]);
 
   const value = useMemo<AppState>(
     () => ({
@@ -274,8 +321,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       swipe,
       undoSwipe,
       resetSwipes: () => setSwipes([]),
-      unlike: (id) => setLikedIds((ids) => ids.filter((x) => x !== id)),
-      like: (id) => setLikedIds((ids) => [id, ...ids.filter((x) => x !== id)]),
+      unlike: (id) => {
+        setLikedIds((ids) => ids.filter((x) => x !== id));
+        if (account?.role === "student") void persistUnlike(account.id, id);
+      },
+      like: (id) => {
+        setLikedIds((ids) => [id, ...ids.filter((x) => x !== id)]);
+        if (account?.role === "student") void persistSwipe(account.id, id, "right");
+      },
       upsertListing: (l) => {
         const isNew = !listings.some((x) => x.id === l.id);
         setListings((cur) =>

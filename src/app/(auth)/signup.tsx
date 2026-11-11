@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
     KeyboardAvoidingView,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Btn, Card, Icon, Logo } from "../../components/kit";
+import { cn } from "../../lib/cn";
 import { colors } from "../../constants/brand";
 import {
     MIN_PASSWORD_LENGTH,
@@ -64,6 +65,11 @@ function Field({
 export default function Signup() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ type?: string }>();
+  const [accountType, setAccountType] = useState<"student" | "owner">(
+    params.type === "owner" ? "owner" : "student",
+  );
+  const isOwner = accountType === "owner";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -82,7 +88,7 @@ export default function Signup() {
 
     setBusy(true);
     try {
-      await signUpWithEmail(name, email, password);
+      await signUpWithEmail(name, email, password, accountType);
       // The root screen sends the new student to onboarding.
       router.replace("/");
     } catch (e) {
@@ -99,7 +105,7 @@ export default function Signup() {
     setError(null);
     let redirecting = false;
     try {
-      const account = await signInWithGoogle("student");
+      const account = await signInWithGoogle(accountType);
       if (account) {
         router.replace("/");
       } else if (Platform.OS === "web") {
@@ -132,8 +138,28 @@ export default function Signup() {
           Create your account
         </Text>
         <Text className="mt-2 text-sm text-muted-foreground">
-          Sign up as a student to swipe and save places near your campus.
+          {isOwner
+            ? "Sign up as an owner to post your rentals and chat with students."
+            : "Sign up as a student to swipe and save places near your campus."}
         </Text>
+
+        <View className="mt-5 flex-row gap-2 rounded-3xl bg-secondary p-1.5">
+          {(["student", "owner"] as const).map((t) => (
+            <Pressable
+              key={t}
+              onPress={() => {
+                if (busy) return;
+                setAccountType(t);
+                setError(null);
+              }}
+              className={cn("flex-1 items-center rounded-2xl py-2.5", accountType === t && "bg-card")}
+            >
+              <Text className={cn("text-xs font-extrabold", accountType === t ? "text-primary" : "text-muted-foreground")}>
+                {t === "student" ? "I'm a student" : "I'm an owner"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
 
         <View className="mt-5 gap-3">
           {error ? (
@@ -198,7 +224,7 @@ export default function Signup() {
           </View>
 
           <Btn
-            label="Sign up with Google"
+            label={isOwner ? "Sign up with Google as Owner" : "Sign up with Google"}
             variant="outline"
             onPress={submitGoogle}
             disabled={busy}
@@ -225,12 +251,13 @@ export default function Signup() {
               color={colors.primary}
             />
             <Text className="text-sm font-extrabold text-primary">
-              Student accounts only
+              {isOwner ? "Owners and students" : "Students and owners"}
             </Text>
           </View>
           <Text className="text-[11px] text-muted-foreground">
             Admin accounts are created by the project team and cannot be
-            registered here.
+            registered here. Owners can post rentals and reply to students;
+            students never share their contact details with owners.
           </Text>
         </Card>
       </ScrollView>

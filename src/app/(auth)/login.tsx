@@ -16,6 +16,12 @@ import { type Role } from "../../data/mockData";
 import { signInWithEmail, signInWithGoogle } from "../../lib/auth";
 import { cn } from "../../lib/cn";
 
+const ROLE_LABEL: Record<Role, string> = {
+  student: "Student",
+  owner: "Owner",
+  admin: "Admin",
+};
+
 function Field({
   label,
   value,
@@ -61,6 +67,9 @@ export default function Login() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [role, setRole] = useState<Role>("student");
+  // Admin sign-in stays hidden until the logo is long-pressed.
+  const [showAdmin, setShowAdmin] = useState(false);
+  const roles: Role[] = showAdmin ? ["student", "owner", "admin"] : ["student", "owner"];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -118,16 +127,18 @@ export default function Login() {
         contentContainerStyle={{ paddingTop: insets.top + 16 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Logo subtitle="Student housing in Cebu" />
+        <Pressable onLongPress={() => setShowAdmin(true)} delayLongPress={1500}>
+          <Logo subtitle="Student housing in Cebu" />
+        </Pressable>
         <Text className="mt-6 text-3xl font-extrabold text-foreground">
           Sign in
         </Text>
         <Text className="mt-2 text-sm text-muted-foreground">
-          Students swipe and save listings. The admin manages the listing pool.
+          Students swipe and save listings. Owners post and manage their own rentals.
         </Text>
 
         <View className="mt-5 flex-row gap-2 rounded-3xl bg-secondary p-1.5">
-          {(["student", "admin"] as Role[]).map((r) => (
+          {roles.map((r) => (
             <Pressable
               key={r}
               onPress={() => {
@@ -146,7 +157,7 @@ export default function Login() {
                   role === r ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                {r === "student" ? "Student" : "Admin"}
+                {ROLE_LABEL[r]}
               </Text>
             </Pressable>
           ))}
@@ -179,13 +190,7 @@ export default function Login() {
           />
 
           <Btn
-            label={
-              busy
-                ? "Please wait..."
-                : role === "student"
-                  ? "Sign in as Student"
-                  : "Sign in as Admin"
-            }
+            label={busy ? "Please wait..." : `Sign in as ${ROLE_LABEL[role]}`}
             icon="arrow-forward"
             onPress={submitEmail}
             disabled={busy}
@@ -200,21 +205,17 @@ export default function Login() {
           </View>
 
           <Btn
-            label={
-              role === "student"
-                ? "Continue with Google as Student"
-                : "Continue with Google as Admin"
-            }
+            label={`Continue with Google as ${ROLE_LABEL[role]}`}
             variant="outline"
             onPress={submitGoogle}
             disabled={busy}
           />
         </View>
 
-        {role === "student" ? (
+        {role !== "admin" ? (
           <Pressable
             onPress={() => {
-              if (!busy) router.replace("/signup");
+              if (!busy) router.replace({ pathname: "/signup", params: { type: role } });
             }}
             className="mt-5 items-center active:opacity-70"
           >
@@ -239,9 +240,8 @@ export default function Login() {
             </Text>
           </View>
           <Text className="text-[11px] text-muted-foreground">
-            Students can sign up with an email and password or with Google.
-            Admin accounts are created by the project team, and the Admin option
-            only works for an account that has been given admin access.
+            Students and owners can sign up with an email and password or with
+            Google.
           </Text>
         </Card>
       </ScrollView>

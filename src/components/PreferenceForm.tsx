@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { colors } from "../constants/brand";
 import { AMENITY_VOCAB, BUDGET_PRESETS, CAMPUSES, HOUSING_TYPES } from "../constants/housing";
 import { cn } from "../lib/cn";
 import type { Prefs, RoommatePref } from "../lib/matching";
@@ -48,6 +49,19 @@ export function PreferenceForm({
             );
           })}
         </View>
+      </View>
+
+      <View>
+        <SectionTitle>Course / program (optional)</SectionTitle>
+        <TextInput
+          value={p.program ?? ""}
+          onChangeText={(program) => setP({ ...p, program })}
+          placeholder="e.g. BS Computer Science"
+          placeholderTextColor={colors.mutedForeground}
+          maxLength={80}
+          autoCapitalize="words"
+          className="rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground"
+        />
       </View>
 
       <View>

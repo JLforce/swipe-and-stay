@@ -1,4 +1,5 @@
 import type { HousingType } from "../constants/housing";
+import type { AdminListingPreview } from "../data/adminListingPreview";
 import type { Listing } from "../data/mockData";
 import type { Tables, TablesInsert } from "../types/database";
 import { supabase } from "./supabase";
@@ -179,6 +180,133 @@ export async function setListingActive(
   return rowToListing(data);
 }
 
+/** Fetch all listings available to the Admin, including their Owner profiles. */
+export async function fetchAdminListings(): Promise<AdminListingPreview[]> {
+  const { data, error } = await supabase
+    .from("listings")
+    .select(
+      `
+      *,
+      owner:profiles!listings_created_by_fkey (
+        full_name,
+        email
+      )
+    `,
+    )
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => {
+    const photoUrls = row.photo_urls ?? [];
+    const verificationStatus = row.verification_status ?? "pending";
+
+    return {
+      id: row.id,
+      title: row.title,
+      address: row.address,
+      type: TYPE_FROM_DB[row.type] ?? "Boarding House",
+      occupancy: row.occupancy === "solo" ? "solo" : "shared",
+      price: Number(row.price),
+      description: row.description ?? "",
+      amenities: row.amenities ?? [],
+      photo: gradientFor(row.id),
+      gallery: [],
+      photoUrl: photoUrls[0] ?? null,
+      galleryUrls: photoUrls.slice(1),
+      coords: {
+        lat: Number(row.lat),
+        lng: Number(row.lng),
+      },
+      owner: {
+        name: row.owner?.full_name ?? row.landlord_name ?? "Unknown Owner",
+        email: row.owner?.email ?? row.landlord_email ?? "",
+        phone: row.landlord_phone ?? "",
+      },
+      verificationStatus:
+        verificationStatus as AdminListingPreview["verificationStatus"],
+      publicationStatus: row.is_active ? "published" : "unpublished",
+      rejectionReason: row.rejection_reason ?? null,
+      submittedAt: row.created_at,
+    };
+  });
+}
+
+/** Verify a pending listing and keep it unpublished. */
+export async function verifyAdminListing(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("listings")
+    .update({
+      verification_status: "verified",
+      rejection_reason: null,
+      is_active: false,
+    })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  if (!data) {
+    throw new Error(
+      "Listing was not updated. It may no longer exist or you may not have permission.",
+    );
+  }
+}
+
+/** Reject a listing and persist its required reason. */
+export async function rejectAdminListing(
+  id: string,
+  reason: string,
+): Promise<void> {
+  const trimmedReason = reason.trim();
+
+  if (!trimmedReason) {
+    throw new Error("A rejection reason is required.");
+  }
+
+  const { data, error } = await supabase
+    .from("listings")
+    .update({
+      verification_status: "rejected",
+      rejection_reason: trimmedReason,
+      is_active: false,
+    })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  if (!data) {
+    throw new Error(
+      "Listing was not rejected. It may no longer exist or you may not have permission.",
+    );
+  }
+}
+
+/** Change publication status for a verified listing. */
+export async function setAdminListingPublication(
+  id: string,
+  published: boolean,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("listings")
+    .update({ is_active: published })
+    .eq("id", id)
+    .eq("verification_status", "verified")
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  if (!data) {
+    throw new Error(
+      "Publication status was not changed. Make sure the listing exists and is verified.",
+    );
+  }
+}
+
 export async function deleteListing(id: string): Promise<void> {
   const { error } = await supabase.from("listings").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -248,8 +376,10 @@ export async function uploadListingPhoto(
   uri: string,
   mimeType?: string | null,
 ): Promise<string> {
-  const type = mimeType && mimeType.startsWith("image/") ? mimeType : "image/jpeg";
-  const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+  const type =
+    mimeType && mimeType.startsWith("image/") ? mimeType : "image/jpeg";
+  const ext =
+    type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
   const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const path = `${ownerId}/${name}`;
 

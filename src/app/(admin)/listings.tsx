@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   Text,
@@ -12,11 +13,17 @@ import { RejectListingModal } from "../../components/admin/RejectListingModal";
 import { Btn, Card, Chip, Icon, Photo, Tag } from "../../components/kit";
 import { colors } from "../../constants/brand";
 import {
-  ADMIN_LISTING_PREVIEW,
   type AdminListingPreview,
   type VerificationStatus,
 } from "../../data/adminListingPreview";
+
 import { peso } from "../../lib/format";
+import {
+  fetchAdminListings,
+  rejectAdminListing,
+  setAdminListingPublication,
+  verifyAdminListing,
+} from "../../lib/listings";
 
 type Filter = "all" | VerificationStatus;
 
@@ -53,9 +60,7 @@ function SummaryCard({
         <Icon name={icon} size={18} color={iconColor} />
       </View>
 
-      <Text className="text-2xl font-extrabold text-foreground">
-        {value}
-      </Text>
+      <Text className="text-2xl font-extrabold text-foreground">{value}</Text>
 
       <Text className="mt-1 text-[11px] font-semibold text-muted-foreground">
         {label}
@@ -64,11 +69,7 @@ function SummaryCard({
   );
 }
 
-function VerificationTag({
-  status,
-}: {
-  status: VerificationStatus;
-}) {
+function VerificationTag({ status }: { status: VerificationStatus }) {
   const config = {
     pending: { label: "Pending Review", tone: "accent" as const },
     verified: { label: "Verified", tone: "primary" as const },
@@ -93,6 +94,7 @@ function ListingCard({
         <View className="flex-row gap-3">
           <Photo
             gradient={listing.photo}
+            uri={listing.photoUrl}
             className="h-[104px] w-[104px] rounded-2xl"
           />
 
@@ -141,9 +143,7 @@ function ListingCard({
 
         <View className="gap-2">
           <View className="flex-row items-center justify-between gap-2">
-            <Text className="text-xs text-muted-foreground">
-              Submitted by
-            </Text>
+            <Text className="text-xs text-muted-foreground">Submitted by</Text>
             <Text
               className="flex-1 text-right text-xs font-bold text-foreground"
               numberOfLines={1}
@@ -157,9 +157,7 @@ function ListingCard({
 
             <Tag
               tone={
-                listing.publicationStatus === "published"
-                  ? "primary"
-                  : "muted"
+                listing.publicationStatus === "published" ? "primary" : "muted"
               }
             >
               {listing.publicationStatus === "published"
@@ -172,11 +170,7 @@ function ListingCard({
             <Text className="text-xs font-bold text-primary">
               Review listing
             </Text>
-            <Icon
-              name="chevron-forward"
-              size={15}
-              color={colors.primary}
-            />
+            <Icon name="chevron-forward" size={15} color={colors.primary} />
           </View>
         </View>
       </Card>
@@ -185,9 +179,9 @@ function ListingCard({
 }
 
 export default function AdminListings() {
-  const [rows, setRows] = useState<AdminListingPreview[]>(
-    ADMIN_LISTING_PREVIEW,
-  );
+  const [rows, setRows] = useState<AdminListingPreview[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
@@ -198,13 +192,54 @@ export default function AdminListings() {
   const [rejectionListing, setRejectionListing] =
     useState<AdminListingPreview | null>(null);
 
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadListings() {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const data = await fetchAdminListings();
+
+        if (isMounted) {
+          setRows(data);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "An unexpected error occurred while loading listings.",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadListings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const totalCount = rows.length;
+
   const pendingCount = rows.filter(
     (listing) => listing.verificationStatus === "pending",
   ).length;
+
   const verifiedCount = rows.filter(
     (listing) => listing.verificationStatus === "verified",
   ).length;
+
   const rejectedCount = rows.filter(
     (listing) => listing.verificationStatus === "rejected",
   ).length;
@@ -224,75 +259,118 @@ export default function AdminListings() {
       .join(" ")
       .toLowerCase();
 
-    const matchesSearch =
-      !query || searchableText.includes(query);
+    const matchesSearch = !query || searchableText.includes(query);
 
     return matchesFilter && matchesSearch;
   });
 
-  function verifyListing(listing: AdminListingPreview) {
-    if (listing.verificationStatus !== "pending") return;
+  async function refreshListings(): Promise<AdminListingPreview[]> {
+    const data = await fetchAdminListings();
+    setRows(data);
+    return data;
+  }
 
-    const updated: AdminListingPreview = {
-      ...listing,
-      verificationStatus: "verified",
-      publicationStatus: "unpublished",
-      rejectionReason: null,
-    };
-
-    setRows((current) =>
-      current.map((item) =>
-        item.id === listing.id ? updated : item,
-      ),
+  function handleRefreshError(err: unknown) {
+    setActionError(
+      err instanceof Error
+        ? err.message
+        : "The listings could not be refreshed.",
     );
+  }
 
-    setSelectedListing(updated);
+  async function verifyListing(listing: AdminListingPreview) {
+    if (listing.verificationStatus !== "pending" || isSaving) return;
+
+    setIsSaving(true);
+    setActionError(null);
+
+    try {
+      await verifyAdminListing(listing.id);
+
+      try {
+        const updatedRows = await refreshListings();
+        const updatedListing = updatedRows.find(
+          (item) => item.id === listing.id,
+        );
+
+        setSelectedListing(updatedListing ?? null);
+      } catch (refreshErr) {
+        handleRefreshError(refreshErr);
+        setSelectedListing(null);
+      }
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Unable to verify this listing.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function openRejection(listing: AdminListingPreview) {
-    if (listing.verificationStatus !== "pending") return;
+    if (listing.verificationStatus !== "pending" || isSaving) return;
 
+    setActionError(null);
     setSelectedListing(null);
     setRejectionListing(listing);
   }
 
-  function rejectListing(reason: string) {
-    if (!rejectionListing || !reason.trim()) return;
+  async function rejectListing(reason: string) {
+    if (!rejectionListing || !reason.trim() || isSaving) return;
 
-    const updated: AdminListingPreview = {
-      ...rejectionListing,
-      verificationStatus: "rejected",
-      publicationStatus: "unpublished",
-      rejectionReason: reason.trim(),
-    };
+    setIsSaving(true);
+    setActionError(null);
 
-    setRows((current) =>
-      current.map((item) =>
-        item.id === updated.id ? updated : item,
-      ),
-    );
+    try {
+      await rejectAdminListing(rejectionListing.id, reason.trim());
 
-    setRejectionListing(null);
+      setRejectionListing(null);
+
+      try {
+        await refreshListings();
+      } catch (refreshErr) {
+        handleRefreshError(refreshErr);
+      }
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Unable to reject this listing.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  function togglePublication(listing: AdminListingPreview) {
-    if (listing.verificationStatus !== "verified") return;
+  async function togglePublication(listing: AdminListingPreview) {
+    if (listing.verificationStatus !== "verified" || isSaving) return;
 
-    const updated: AdminListingPreview = {
-      ...listing,
-      publicationStatus:
-        listing.publicationStatus === "published"
-          ? "unpublished"
-          : "published",
-    };
+    const shouldPublish = listing.publicationStatus !== "published";
 
-    setRows((current) =>
-      current.map((item) =>
-        item.id === updated.id ? updated : item,
-      ),
-    );
+    setIsSaving(true);
+    setActionError(null);
 
-    setSelectedListing(updated);
+    try {
+      await setAdminListingPublication(listing.id, shouldPublish);
+
+      try {
+        const updatedRows = await refreshListings();
+        const updatedListing = updatedRows.find(
+          (item) => item.id === listing.id,
+        );
+
+        setSelectedListing(updatedListing ?? null);
+      } catch (refreshErr) {
+        handleRefreshError(refreshErr);
+        setSelectedListing(null);
+      }
+    } catch (err) {
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : "Unable to update this listing's publication status.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   const filterTitle =
@@ -344,7 +422,7 @@ export default function AdminListings() {
           />
         </View>
 
-        {/* Preview data notice */}
+        {/* Supabase data notice */}
         <View className="flex-row items-start gap-2 rounded-2xl border border-border bg-secondary p-3">
           <Icon
             name="information-circle-outline"
@@ -352,8 +430,8 @@ export default function AdminListings() {
             color={colors.primary}
           />
           <Text className="flex-1 text-xs leading-5 text-secondary-foreground">
-            Preview mode: these are sample submissions. Changes are
-            temporary and are not saved to Supabase.
+            Listings are loaded from Supabase. Administrative changes are saved
+            to the database.
           </Text>
         </View>
 
@@ -427,52 +505,95 @@ export default function AdminListings() {
             </Text>
           </View>
 
-          {filteredRows.map((listing) => (
-            <ListingCard
-              key={listing.id}
-              listing={listing}
-              onPress={() => setSelectedListing(listing)}
-            />
-          ))}
-
-          {filteredRows.length === 0 ? (
-            <View className="items-center rounded-3xl border border-border bg-card px-6 py-12">
-              <View className="mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
-                <Icon
-                  name={search.trim() ? "search-outline" : "business-outline"}
-                  size={28}
-                  color={colors.primary}
-                />
-              </View>
-
-              <Text className="text-base font-extrabold text-foreground">
-                {search.trim()
-                  ? "No matching listings"
-                  : filter === "pending"
-                    ? "No pending submissions"
-                    : filter === "verified"
-                      ? "No verified listings"
-                      : filter === "rejected"
-                        ? "No rejected listings"
-                        : "No listings yet"}
+          {actionError ? (
+            <View className="flex-row items-start gap-2 rounded-2xl border border-border bg-secondary p-3">
+              <Icon
+                name="alert-circle-outline"
+                size={18}
+                color={colors.destructive}
+              />
+              <Text className="flex-1 text-xs leading-5 text-foreground">
+                {actionError}
               </Text>
-
-              <Text className="mt-2 text-center text-xs leading-5 text-muted-foreground">
-                {search.trim()
-                  ? "Try another property name, location, or Owner."
-                  : "Owner-submitted listings will appear here when available."}
-              </Text>
-
-              {search.trim() ? (
-                <Btn
-                  label="Clear search"
-                  variant="outline"
-                  className="mt-4"
-                  onPress={() => setSearch("")}
-                />
-              ) : null}
             </View>
           ) : null}
+
+          {isLoading ? (
+            <View className="items-center justify-center gap-3 rounded-3xl border border-border bg-card px-6 py-12">
+              <ActivityIndicator size="large" color={colors.primary} />
+
+              <Text className="text-sm font-semibold text-muted-foreground">
+                Loading property listings...
+              </Text>
+            </View>
+          ) : error ? (
+            <View className="items-center justify-center gap-3 rounded-3xl border border-border bg-card px-6 py-12">
+              <Icon
+                name="alert-circle-outline"
+                size={30}
+                color={colors.destructive}
+              />
+
+              <Text className="text-base font-extrabold text-foreground">
+                Unable to load listings
+              </Text>
+
+              <Text className="text-center text-xs leading-5 text-muted-foreground">
+                {error}
+              </Text>
+            </View>
+          ) : (
+            <>
+              {filteredRows.map((listing) => (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  onPress={() => setSelectedListing(listing)}
+                />
+              ))}
+
+              {filteredRows.length === 0 ? (
+                <View className="items-center rounded-3xl border border-border bg-card px-6 py-12">
+                  <View className="mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
+                    <Icon
+                      name={
+                        search.trim() ? "search-outline" : "business-outline"
+                      }
+                      size={28}
+                      color={colors.primary}
+                    />
+                  </View>
+
+                  <Text className="text-base font-extrabold text-foreground">
+                    {search.trim()
+                      ? "No matching listings"
+                      : filter === "pending"
+                        ? "No pending submissions"
+                        : filter === "verified"
+                          ? "No verified listings"
+                          : filter === "rejected"
+                            ? "No rejected listings"
+                            : "No listings yet"}
+                  </Text>
+
+                  <Text className="mt-2 text-center text-xs leading-5 text-muted-foreground">
+                    {search.trim()
+                      ? "Try another property name, location, or Owner."
+                      : "Owner-submitted listings will appear here when available."}
+                  </Text>
+
+                  {search.trim() ? (
+                    <Btn
+                      label="Clear search"
+                      variant="outline"
+                      className="mt-4"
+                      onPress={() => setSearch("")}
+                    />
+                  ) : null}
+                </View>
+              ) : null}
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -480,7 +601,9 @@ export default function AdminListings() {
       <ListingReviewModal
         visible={selectedListing !== null}
         listing={selectedListing}
-        onClose={() => setSelectedListing(null)}
+        onClose={() => {
+          if (!isSaving) setSelectedListing(null);
+        }}
         onVerify={verifyListing}
         onReject={openRejection}
         onTogglePublication={togglePublication}
@@ -490,7 +613,9 @@ export default function AdminListings() {
       <RejectListingModal
         visible={rejectionListing !== null}
         listing={rejectionListing}
-        onClose={() => setRejectionListing(null)}
+        onClose={() => {
+          if (!isSaving) setRejectionListing(null);
+        }}
         onSubmit={rejectListing}
       />
     </View>

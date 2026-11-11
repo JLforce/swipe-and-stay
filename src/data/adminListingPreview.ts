@@ -21,6 +21,8 @@ export interface AdminListingPreview {
   amenities: string[];
   photo: string;
   gallery: string[];
+  photoUrl?: string | null;
+  galleryUrls?: string[];
   coords: {
     lat: number;
     lng: number;
@@ -165,7 +167,8 @@ export const ADMIN_LISTING_PREVIEW: AdminListingPreview[] = [
     },
     verificationStatus: "rejected",
     publicationStatus: "unpublished",
-    rejectionReason: "The submitted property information is incomplete. Please provide the missing property documentation for verification.",
+    rejectionReason:
+      "The submitted property information is incomplete. Please provide the missing property documentation for verification.",
     submittedAt: "2026-11-04T08:20:00+08:00",
   },
   {
@@ -191,7 +194,8 @@ export const ADMIN_LISTING_PREVIEW: AdminListingPreview[] = [
     },
     verificationStatus: "rejected",
     publicationStatus: "unpublished",
-    rejectionReason: "The property photos do not sufficiently show the actual room interiors and available facilities.",
+    rejectionReason:
+      "The property photos do not sufficiently show the actual room interiors and available facilities.",
     submittedAt: "2026-11-07T16:10:00+08:00",
   },
 ];

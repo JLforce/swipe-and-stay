@@ -49,6 +49,7 @@ async function askCerebras(apiKey: string, facts: string): Promise<string | null
   }
 }
 
+const DAILY_LIMIT = 30;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req) => {
@@ -92,7 +93,14 @@ Deno.serve(async (req) => {
   if (cachedRes.data) return json({ explanation: cachedRes.data.explanation, score, cached: true });
 
   const template = caption(listing, prefs, weights);
-  const apiKey = Deno.env.get("CEREBRAS_API_KEY");
+  // Daily cap on AI calls per user; past it the template is used so the free tier is protected.
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { count } = await db
+    .from("match_explanations")
+    .select("listing_id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", since);
+  const apiKey = (count ?? 0) < DAILY_LIMIT ? Deno.env.get("CEREBRAS_API_KEY") : undefined;
   const facts = `Listing: ${listing.title}, PHP ${listing.price}/month. Match score: ${score}%. Why it matches: ${template}`;
   const explanation = (apiKey ? await askCerebras(apiKey, facts) : null) ?? template;
   // Users can only SELECT match_explanations (RLS), so the server writes it.

@@ -1,23 +1,9 @@
+import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
-
-import {
-  Btn,
-  Card,
-  Icon,
-  Photo,
-  SectionTitle,
-  Tag,
-} from "../kit";
 import { colors } from "../../constants/brand";
 import type { AdminListingPreview } from "../../data/adminListingPreview";
 import { peso } from "../../lib/format";
+import { Btn, Card, Icon, Photo, SectionTitle, Tag } from "../kit";
 
 interface ListingReviewModalProps {
   visible: boolean;
@@ -44,21 +30,13 @@ function StatusTag({
   return <Tag tone={item.tone}>{item.label}</Tag>;
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View className="gap-1 border-b border-border py-3">
       <Text className="text-xs font-semibold text-muted-foreground">
         {label}
       </Text>
-      <Text className="text-sm font-semibold text-foreground">
-        {value}
-      </Text>
+      <Text className="text-sm font-semibold text-foreground">{value}</Text>
     </View>
   );
 }
@@ -75,6 +53,25 @@ export function ListingReviewModal({
 
   const isPending = listing.verificationStatus === "pending";
   const isVerified = listing.verificationStatus === "verified";
+
+  // Use actual uploaded Supabase photo URLs when available.
+  const photoUrls = [listing.photoUrl, ...(listing.galleryUrls ?? [])].filter(
+    (url): url is string => Boolean(url),
+  );
+
+  // Keep the existing gradient fallback for listings without photos.
+  const photos =
+    photoUrls.length > 0
+      ? photoUrls.map((uri, index) => ({
+          uri,
+          label: `Property photo ${index + 1}`,
+        }))
+      : [
+          {
+            uri: null,
+            label: "No photo uploaded",
+          },
+        ];
 
   return (
     <Modal
@@ -140,7 +137,8 @@ export function ListingReviewModal({
               <Text className="text-2xl font-extrabold text-primary">
                 {peso(listing.price)}
                 <Text className="text-sm font-medium text-muted-foreground">
-                  {" "}/ month
+                  {" "}
+                  / month
                 </Text>
               </Text>
             </View>
@@ -154,20 +152,22 @@ export function ListingReviewModal({
                 showsHorizontalScrollIndicator={false}
                 contentContainerClassName="gap-3"
               >
-                {[listing.photo, ...listing.gallery].map((photo, index) => (
+                {photos.map((photo, index) => (
                   <View key={`${listing.id}-photo-${index}`}>
                     <Photo
-                      gradient={photo}
+                      gradient={listing.photo}
+                      uri={photo.uri}
                       className="h-44 w-64 rounded-2xl"
-                      label={`Preview image ${index + 1}`}
+                      label={photo.label}
                     />
                   </View>
                 ))}
               </ScrollView>
 
               <Text className="text-[11px] text-muted-foreground">
-                UI preview placeholders. Actual property photos will be
-                connected during backend integration.
+                {photoUrls.length > 0
+                  ? `${photoUrls.length} uploaded property photo${photoUrls.length === 1 ? "" : "s"}.`
+                  : "No property photos have been uploaded for this listing."}
               </Text>
             </View>
 
@@ -215,14 +215,8 @@ export function ListingReviewModal({
             <Card className="gap-1">
               <SectionTitle>Property location</SectionTitle>
 
-              <DetailRow
-                label="Latitude"
-                value={String(listing.coords.lat)}
-              />
-              <DetailRow
-                label="Longitude"
-                value={String(listing.coords.lng)}
-              />
+              <DetailRow label="Latitude" value={String(listing.coords.lat)} />
+              <DetailRow label="Longitude" value={String(listing.coords.lng)} />
             </Card>
 
             {/* Owner information */}
@@ -349,11 +343,7 @@ export function ListingReviewModal({
               </View>
             ) : null}
 
-            <Btn
-              label="Close review"
-              variant="outline"
-              onPress={onClose}
-            />
+            <Btn label="Close review" variant="outline" onPress={onClose} />
           </ScrollView>
         </View>
       </View>

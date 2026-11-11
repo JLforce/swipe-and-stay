@@ -41,7 +41,26 @@ $$;
 revoke all on function public.protect_profile_role()
     from public, anon, authenticated;
 
--- is_owner() is defined in 20261110143000_owner_account_foundation.sql.
+-- Defined here because the storage policies below need it; 20261110143000_owner_account_foundation.sql
+-- replaces it later with the same logic.
+create or replace function public.is_owner()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select exists (
+        select 1
+        from public.profiles as p
+        where p.id = (select auth.uid())
+          and p.role = 'owner'
+    );
+$$;
+
+revoke all on function public.is_owner() from public, anon;
+grant execute on function public.is_owner() to authenticated;
+
 
 -- Google sign-up has no form to send account_type, so a brand-new account
 -- that picked "Owner" calls this once. It refuses accounts already used as

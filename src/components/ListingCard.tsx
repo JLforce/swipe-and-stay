@@ -20,7 +20,7 @@ export function ListingCard({
   const mins = commuteMinutes(km);
   return (
     <Pressable onPress={onPress} className="h-full overflow-hidden rounded-[32px] border border-border bg-card">
-      <Photo gradient={l.photo} className="h-56 w-full" label="Property photo placeholder" />
+      <Photo gradient={l.photo} uri={l.photoUrls?.[0]} className="h-56 w-full" label={l.photoUrls?.length ? undefined : "Property photo placeholder"} />
       <View className="absolute right-3 top-3 rounded-full bg-background/90 px-3 py-1.5">
         <Text className="text-xs font-extrabold text-primary">{score}% match</Text>
       </View>

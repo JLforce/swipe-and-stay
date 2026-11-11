@@ -49,10 +49,13 @@ export function SectionTitle({ children }: { children: ReactNode }) {
 
 export function Photo({
   gradient,
+  uri,
   className,
   label,
 }: {
   gradient: string;
+  /** A real photo. When set it covers the gradient, which stays as the loading backdrop. */
+  uri?: string | null;
   className?: string;
   label?: string;
 }) {
@@ -64,6 +67,7 @@ export function Photo({
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
       <LinearGradient
         colors={["transparent", "rgba(0,0,0,0.45)"]}
         style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "50%" }}

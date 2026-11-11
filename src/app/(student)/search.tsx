@@ -95,7 +95,7 @@ export default function Search() {
         {outcome.hits.map(({ listing: l, score, km }) => (
           <Pressable key={l.id} onPress={() => router.push({ pathname: "/listing/[id]", params: { id: l.id } })} className="active:opacity-80">
             <Card className="flex-row items-center gap-3 p-3">
-              <Photo gradient={l.photo} className="h-16 w-16 rounded-2xl" />
+              <Photo gradient={l.photo} uri={l.photoUrls?.[0]} className="h-16 w-16 rounded-2xl" />
               <View className="flex-1 gap-1">
                 <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
                   {l.title}

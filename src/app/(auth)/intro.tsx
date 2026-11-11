@@ -1,15 +1,25 @@
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Btn, Logo, Photo, Tag } from "../../components/kit";
+import { Btn, Logo, Tag } from "../../components/kit";
 import { colors } from "../../constants/brand";
 import { ONBOARDING_SLIDES } from "../../data/mockData";
 import { cn } from "../../lib/cn";
 
+// One illustration per slide, in the same order as ONBOARDING_SLIDES.
+const ART = [
+  require("../../../assets/images/intro-discover.png"),
+  require("../../../assets/images/intro-matching.png"),
+  require("../../../assets/images/intro-safety.png"),
+];
+
 export default function Intro() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  // Tall phones get the full 340pt picture; short phones get a smaller one so nothing is cut off.
+  const artHeight = Math.min(340, Math.round(height * 0.38));
   const [step, setStep] = useState(0);
   const slide = ONBOARDING_SLIDES[step]!;
   const last = step === ONBOARDING_SLIDES.length - 1;
@@ -18,7 +28,12 @@ export default function Intro() {
     <View className="flex-1 bg-background px-6" style={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }}>
       <Logo subtitle="Student housing in Cebu" />
       <View className="mt-6 flex-1">
-        <Photo gradient={slide.gradient} className="h-60 w-full rounded-[32px]" label="Illustration placeholder" />
+        <Image
+          source={ART[step]!}
+          resizeMode="contain"
+          style={{ width: "100%", height: artHeight }}
+          accessibilityLabel={`${slide.title} illustration`}
+        />
         <View className="mt-5">
           <Tag tone="accent">{slide.tag}</Tag>
         </View>

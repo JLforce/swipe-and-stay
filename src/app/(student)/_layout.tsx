@@ -31,6 +31,7 @@ export default function StudentLayout() {
 
   if (!account) return <Redirect href="/login" />;
   if (account.role === "admin") return <Redirect href="/overview" />;
+  if (account.role === "owner") return <Redirect href="/dashboard" />;
   if (!onboarded) return <Redirect href="/setup" />;
 
   return (

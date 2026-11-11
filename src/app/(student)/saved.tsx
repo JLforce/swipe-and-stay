@@ -50,7 +50,7 @@ export default function Saved() {
         items.map(({ l, km }) => (
           <Card key={l.id} className="flex-row items-center gap-3 p-3">
             <Pressable onPress={() => router.push({ pathname: "/listing/[id]", params: { id: l.id } })}>
-              <Photo gradient={l.photo} className="h-16 w-16 rounded-2xl" />
+              <Photo gradient={l.photo} uri={l.photoUrls?.[0]} className="h-16 w-16 rounded-2xl" />
             </Pressable>
             <Pressable className="flex-1 gap-1" onPress={() => router.push({ pathname: "/listing/[id]", params: { id: l.id } })}>
               <Text className="text-sm font-bold text-foreground" numberOfLines={1}>

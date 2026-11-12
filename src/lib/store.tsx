@@ -234,7 +234,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const load = () =>
       fetchActiveListings()
         .then((real) => {
-          if (active) setListings(SHOW_DEMO_LISTINGS ? [...real, ...LISTINGS] : real);
+          if (active)
+            setListings(SHOW_DEMO_LISTINGS ? [...real, ...LISTINGS] : real);
         })
         .catch((e: unknown) => console.warn("Could not load listings", e));
 
@@ -259,7 +260,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [isStudent]);
 
-    // Students also see their real notifications from Supabase, merged with the
+  // Students also see their real notifications from Supabase, merged with the
   // local ones. Everything resets when they sign out.
   const studentId = account?.role === "student" ? account.id : null;
 
@@ -318,7 +319,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!last) return s;
       if (last.direction === "right") {
         setLikedIds((ids) => ids.filter((x) => x !== last.listingId));
-        if (account?.role === "student") void persistUnlike(account.id, last.listingId);
+        if (account?.role === "student")
+          void persistUnlike(account.id, last.listingId);
       }
       return s.slice(0, -1);
     });
@@ -364,7 +366,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       like: (id) => {
         setLikedIds((ids) => [id, ...ids.filter((x) => x !== id)]);
-        if (account?.role === "student") void persistSwipe(account.id, id, "right");
+        if (account?.role === "student")
+          void persistSwipe(account.id, id, "right");
       },
       upsertListing: (l) => {
         const isNew = !listings.some((x) => x.id === l.id);
@@ -396,28 +399,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markAllRead: () => {
         if (!notifications.some((n) => !n.read)) return;
         setNotifications((cur) => cur.map((n) => ({ ...n, read: true })));
-        if (studentId) void markNotificationsRead(studentId);
+        if (studentId)
+          markNotificationsRead(studentId).catch((e: unknown) => {
+            console.warn("Could not mark notifications as read", e);
+            setNotifications((cur) =>
+              cur.map((n) =>
+                n.id.startsWith("n") ? n : { ...n, read: false },
+              ),
+            );
+          });
       },
       notify: pushNote,
       flash,
     }),
     [
-    account,
-    authLoading,
-    onboarded,
-    prefs,
-    weights,
-    listings,
-    swipes,
-    likedIds,
-    notifications,
-    studentId,
-    toast,
-    swipe,
-    undoSwipe,
-    flash,
-    pushNote,
-    clearSession,
+      account,
+      authLoading,
+      onboarded,
+      prefs,
+      weights,
+      listings,
+      swipes,
+      likedIds,
+      notifications,
+      studentId,
+      toast,
+      swipe,
+      undoSwipe,
+      flash,
+      pushNote,
+      clearSession,
     ],
   );
 

@@ -28,7 +28,10 @@ export function mergeNotifications(
   current: AppNotification[],
 ): AppNotification[] {
   const ids = new Set(incoming.map((n) => n.id));
-  return [...incoming, ...current.filter((n) => !ids.has(n.id))];
+  // Local notes have no timestamp, so keep them first (they are always recent).
+  const local = current.filter((n) => !ids.has(n.id) && n.time === "Just now");
+  const rest = current.filter((n) => !ids.has(n.id) && n.time !== "Just now");
+  return [...local, ...incoming, ...rest];
 }
 
 /** The signed-in student's latest notifications, newest first. */
@@ -51,7 +54,7 @@ export async function markNotificationsRead(userId: string): Promise<void> {
     .eq("user_id", userId)
     .is("read_at", null);
 
-  if (error) console.warn("Could not mark notifications as read", error.message);
+  if (error) throw new Error(error.message);
 }
 
 /**

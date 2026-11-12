@@ -1,7 +1,7 @@
+import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 import { Icon, type IconName } from "../components/kit";
 import { colors } from "../constants/brand";
 import type { AppNotification } from "../data/mockData";
@@ -26,6 +26,12 @@ export default function Notifications() {
     markAllRead();
   }, [markAllRead]);
 
+  const openListing = (n: AppNotification) => {
+    if (!n.listingId) return;
+    router.back();
+    router.push({ pathname: "/listing/[id]", params: { id: n.listingId } });
+  };
+  
   return (
     <View className="flex-1 justify-end">
       <Pressable
@@ -59,7 +65,12 @@ export default function Notifications() {
           {notifications.map((n) => {
             const st = STYLE[n.kind];
             return (
-              <View key={n.id} className={cn("flex-row gap-3 rounded-3xl border p-4", st.card)}>
+              <Pressable
+              key={n.id}
+              disabled={!n.listingId}
+              onPress={() => openListing(n)}
+              className={cn("flex-row gap-3 rounded-3xl border p-4 active:opacity-80", st.card)}>
+
                 <View className={cn("h-10 w-10 items-center justify-center rounded-full", st.circle)}>
                   <Icon name={st.icon} size={18} color={st.color} />
                 </View>
@@ -68,8 +79,7 @@ export default function Notifications() {
                   <Text className="mt-1 text-sm leading-5 text-foreground/75">{n.body}</Text>
                   <Text className="mt-2 text-[11px] text-muted-foreground">{n.time}</Text>
                 </View>
-              </View>
-            );
+              </Pressable>);
           })}
 
           <View className="flex-row items-center justify-center gap-1.5 pt-1">

@@ -211,6 +211,7 @@ export interface AppNotification {
   body: string;
   time: string;
   read: boolean;
+  listingId?: string;
 }
 
 export const INITIAL_NOTIFICATIONS: AppNotification[] = [

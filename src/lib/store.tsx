@@ -22,6 +22,7 @@ import {
 } from "./auth";
 import {
   fetchActiveListings,
+  fetchSwipes,
   persistSwipe,
   persistUnlike,
   SHOW_DEMO_LISTINGS,
@@ -280,6 +281,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
       active = false;
       unsubscribe();
       setNotifications([]);
+    };
+  }, [studentId]);
+
+  // Restores the student's past swipes and saved listings after signing in.
+  useEffect(() => {
+    if (!studentId) return;
+    let active = true;
+
+    fetchSwipes(studentId)
+      .then((rows) => {
+        if (!active) return;
+        // Keep anything swiped on screen while this was loading.
+        setSwipes((cur) => [
+          ...rows.map(({ listingId, direction, at }) => ({
+            listingId,
+            direction,
+            at,
+          })),
+          ...cur.filter((c) => !rows.some((r) => r.listingId === c.listingId)),
+        ]);
+        const saved = rows
+          .filter((r) => r.saved)
+          .map((r) => r.listingId)
+          .reverse(); // newest first
+        setLikedIds((cur) => [
+          ...cur,
+          ...saved.filter((id) => !cur.includes(id)),
+        ]);
+      })
+      .catch((e: unknown) => console.warn("Could not load saved listings", e));
+
+    return () => {
+      active = false;
     };
   }, [studentId]);
 

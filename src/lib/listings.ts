@@ -58,7 +58,8 @@ export function rowToListing(row: ListingRow): Listing {
     safety: { score: 0, notes: [] },
     landlord: {
       name: row.landlord_name ?? "",
-      verified: false,
+      // Shown as the landlord's badge: true once an admin has verified the listing.
+      verified: row.verification_status === "verified",
       responseTime: "when available",
       phone: row.landlord_phone ?? "",
       email: row.landlord_email ?? "",

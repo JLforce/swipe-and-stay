@@ -1,7 +1,7 @@
 // Saves and loads a student's onboarding choices in public.profiles, so the admin can see them
 // and the match explanation (which needs the student's campus) works.
 import { CAMPUSES, type HousingType } from "../constants/housing";
-import type { Prefs, RoommatePref } from "./matching";
+import { FACTORS, type Prefs, type RoommatePref, type Weights } from "./matching";
 import { supabase } from "./supabase";
 
 // App campus id -> campuses.short_name in the database.
@@ -78,4 +78,29 @@ export async function loadProfilePrefs(userId: string, base: Prefs): Promise<{ p
       program: data.program ?? "",
     },
   };
+}
+
+/** The student's learned matching weights, or null if none are saved yet. */
+export async function loadWeights(userId: string): Promise<Weights | null> {
+  const { data, error } = await supabase
+    .from("preference_weights")
+    .select("priority_weights")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  const w = data?.priority_weights as Partial<Record<keyof Weights, number>> | undefined;
+  if (!w || !FACTORS.every((f) => typeof w[f] === "number")) return null;
+  return { price: w.price!, distance: w.distance!, amenities: w.amenities!, type: w.type! };
+}
+
+/** Best-effort save, so the database (and new-match notifications) use the same weights as the app. */
+export async function saveWeights(userId: string, weights: Weights, swipeCount: number): Promise<void> {
+  const { error } = await supabase.from("preference_weights").upsert({
+    user_id: userId,
+    priority_weights: { ...weights },
+    swipe_count: swipeCount,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) console.warn("Could not save matching weights", error.message);
 }

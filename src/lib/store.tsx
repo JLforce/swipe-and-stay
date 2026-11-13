@@ -43,7 +43,12 @@ import {
   mergeNotifications,
   subscribeToNotifications,
 } from "./notifications";
-import { loadProfilePrefs, saveProfilePrefs } from "./profilePrefs";
+import {
+  loadProfilePrefs,
+  loadWeights,
+  saveProfilePrefs,
+  saveWeights,
+} from "./profilePrefs";
 import { supabase } from "./supabase";
 const FACTOR_NAME: Record<Factor, string> = {
   price: "price",
@@ -312,6 +317,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })
       .catch((e: unknown) => console.warn("Could not load saved listings", e));
 
+    loadWeights(studentId)
+      .then((saved) => {
+        if (active && saved) setWeights(saved);
+      })
+      .catch((e: unknown) => console.warn("Could not load matching weights", e));
+
     return () => {
       active = false;
     };
@@ -327,6 +338,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         { listingId: l.id, direction: dir, at: Date.now() },
       ]);
       setWeights(nextWeights);
+      if (account?.role === "student")
+        void saveWeights(account.id, nextWeights, count);
       if (dir === "right")
         setLikedIds((ids) => [l.id, ...ids.filter((x) => x !== l.id)]);
       // Every 5th swipe, tell the student what the matcher has learned.

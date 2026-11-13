@@ -348,6 +348,32 @@ export async function persistSwipe(
   }
 }
 
+export interface StoredSwipe {
+  listingId: string;
+  direction: "left" | "right";
+  at: number;
+  /** True when this is a right swipe the student has not removed. */
+  saved: boolean;
+}
+
+/** The signed-in student's past swipes, oldest first, so Saved survives a new sign-in. */
+export async function fetchSwipes(userId: string): Promise<StoredSwipe[]> {
+  const { data, error } = await supabase
+    .from("swipes")
+    .select("listing_id, direction, swiped_at, unliked_at")
+    .eq("user_id", userId)
+    .order("swiped_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((r) => ({
+    listingId: r.listing_id,
+    direction: r.direction as "left" | "right",
+    at: new Date(r.swiped_at).getTime(),
+    saved: r.direction === "right" && r.unliked_at === null,
+  }));
+}
+
 /** Best-effort: a student removed a saved listing. */
 export async function persistUnlike(
   userId: string,

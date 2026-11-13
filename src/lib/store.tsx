@@ -31,14 +31,15 @@ import {
   DEFAULT_WEIGHTS,
   FACTORS,
   factorScores,
-  matchScore,
   updateWeights,
   type Factor,
   type Prefs,
   type Weights,
 } from "./matching";
 import {
+  createNotification,
   fetchNotifications,
+  isSavedKind,
   markNotificationsRead,
   mergeNotifications,
   subscribeToNotifications,
@@ -129,17 +130,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const pushNote = useCallback(
     (n: Omit<AppNotification, "id" | "time" | "read">) => {
-      setNotifications((cur) => [
-        {
-          ...n,
-          id: `n${Date.now()}${cur.length}`,
-          time: "Just now",
-          read: false,
-        },
-        ...cur,
-      ]);
+      const addLocal = () =>
+        setNotifications((cur) => [
+          {
+            ...n,
+            id: `n${Date.now()}${cur.length}`,
+            time: "Just now",
+            read: false,
+          },
+          ...cur,
+        ]);
+
+      // Students' re-ranking and lease notes are saved, so they survive a
+      // restart. The stored row has a real id, so the realtime copy merges
+      // into it instead of showing twice. If saving fails, keep it locally.
+      if (account?.role === "student" && isSavedKind(n.kind)) {
+        createNotification(account.id, n)
+          .then((row) =>
+            setNotifications((cur) => mergeNotifications([row], cur)),
+          )
+          .catch(addLocal);
+        return;
+      }
+      addLocal();
     },
-    [],
+    [account],
   );
 
   // Stores the signed-in account that came from Supabase.
@@ -418,13 +433,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setListings((cur) =>
           isNew ? [l, ...cur] : cur.map((x) => (x.id === l.id ? l : x)),
         );
-        if (isNew && l.active && matchScore(l, prefs, weights) >= 75) {
-          pushNote({
-            kind: "match",
-            title: "New listing matches your preferences",
-            body: `${l.title} was just added.`,
-          });
-        }
       },
       toggleActive: (id) => {
         const target = listings.find((x) => x.id === id);
@@ -432,13 +440,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setListings((cur) =>
           cur.map((x) => (x.id === id ? { ...x, active: !x.active } : x)),
         );
-        if (target.active && likedIds.includes(id)) {
-          pushNote({
-            kind: "deactivated",
-            title: "A saved listing is no longer available",
-            body: `${target.title} was deactivated by the admin.`,
-          });
-        }
       },
       markAllRead: () => {
         if (!notifications.some((n) => !n.read)) return;

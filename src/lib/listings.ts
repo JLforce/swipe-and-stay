@@ -316,7 +316,7 @@ export async function deleteListing(id: string): Promise<void> {
  * Keep the sample listings next to real owner listings while the pilot has few
  * real ones. Set to false to show only listings posted by owners.
  */
-export const SHOW_DEMO_LISTINGS = true;
+export const SHOW_DEMO_LISTINGS = false;
 
 /**
  * Best-effort save of a student's swipe so owners can see interest.

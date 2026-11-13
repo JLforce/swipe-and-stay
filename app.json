@@ -53,6 +53,12 @@
         "projectId": "a6e68a1a-9dac-4cf1-a234-c3b8ae09e8fc"
       }
     },
-    "owner": "trixieejoyce"
+    "owner": "trixieejoyce",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a6e68a1a-9dac-4cf1-a234-c3b8ae09e8fc"
+    }
   }
 }

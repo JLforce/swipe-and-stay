@@ -13,7 +13,11 @@ function toAppNotification(row: NotificationRow): AppNotification {
         ? "match"
         : row.type === "listing_deactivated"
           ? "deactivated"
-          : "info",
+          : row.type === "rerank"
+            ? "rerank"
+            : row.type === "lease_ready"
+              ? "lease"
+              : "info",
     title: row.title,
     body: row.body ?? "",
     time: formatWhen(row.created_at),
@@ -82,4 +86,32 @@ export function subscribeToNotifications(
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+const SAVED_KINDS: Partial<Record<AppNotification["kind"], string>> = {
+  rerank: "rerank",
+  lease: "lease_ready",
+};
+
+/** True for the notification kinds the app saves to the database itself. */
+export function isSavedKind(kind: AppNotification["kind"]): boolean {
+  return kind in SAVED_KINDS;
+}
+
+/** Saves one of the app's own notifications (re-ranking, lease summary) and returns the stored row. */
+export async function createNotification(
+  userId: string,
+  n: Pick<AppNotification, "kind" | "title" | "body">,
+): Promise<AppNotification> {
+  const type = SAVED_KINDS[n.kind];
+  if (!type) throw new Error("This notification kind is not saved.");
+
+  const { data, error } = await supabase
+    .from("notifications")
+    .insert({ user_id: userId, type, title: n.title, body: n.body })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return toAppNotification(data);
 }

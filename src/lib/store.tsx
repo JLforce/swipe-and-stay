@@ -11,7 +11,6 @@ import {
 import { AppState as RNAppState } from "react-native";
 import { CAMPUSES } from "../constants/housing";
 import {
-  INITIAL_NOTIFICATIONS,
   LISTINGS,
   type AppNotification,
   type Listing,
@@ -110,9 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [listings, setListings] = useState<Listing[]>(LISTINGS);
   const [swipes, setSwipes] = useState<Swipe[]>([]);
   const [likedIds, setLikedIds] = useState<string[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>(
-    INITIAL_NOTIFICATIONS,
-  );
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Remembers who is signed in so repeated sign-in events don't refetch the profile.
@@ -282,7 +279,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
       unsubscribe();
-      setNotifications(INITIAL_NOTIFICATIONS);
+      setNotifications([]);
     };
   }, [studentId]);
 

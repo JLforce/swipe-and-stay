@@ -214,41 +214,6 @@ export interface AppNotification {
   listingId?: string;
 }
 
-export const INITIAL_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: "n1",
-    kind: "match",
-    title: "New 96% match near UP Cebu",
-    body: "Casa Verde Boarding House moved to the top of your deck after your last 5 swipes.",
-    time: "2 min ago",
-    read: false,
-  },
-  {
-    id: "n2",
-    kind: "deactivated",
-    title: "A saved listing is no longer available",
-    body: "Talamban Co-Living Pod was deactivated by the admin. It was removed from your deck.",
-    time: "1 hr ago",
-    read: false,
-  },
-  {
-    id: "n3",
-    kind: "rerank",
-    title: "Re-ranking complete",
-    body: "You liked 3 walkable places. Distance now counts for more in your matches.",
-    time: "Yesterday",
-    read: true,
-  },
-  {
-    id: "n4",
-    kind: "lease",
-    title: "Lease summary ready",
-    body: "A plain-language summary for Casa Verde is ready to review.",
-    time: "Yesterday",
-    read: true,
-  },
-];
-
 export const ONBOARDING_SLIDES = [
   {
     tag: "Discover",

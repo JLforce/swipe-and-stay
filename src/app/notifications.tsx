@@ -140,17 +140,6 @@ export default function Notifications() {
               </Pressable>
             );
           })}
-
-          <View className="flex-row items-center justify-center gap-1.5 pt-1">
-            <Icon
-              name="star-outline"
-              size={12}
-              color={colors.mutedForeground}
-            />
-            <Text className="text-[11px] text-muted-foreground">
-              Sample activity feed
-            </Text>
-          </View>
         </ScrollView>
       </View>
     </View>

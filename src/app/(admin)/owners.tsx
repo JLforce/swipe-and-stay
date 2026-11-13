@@ -10,15 +10,13 @@ import {
 import { colors } from "../../constants/brand";
 import { fetchOwners, type OwnerRecord } from "../../lib/owners";
 
-type OwnerFilter = "all" | "active" | "pending" | "suspended";
+type OwnerFilter = "all" | "active";
 
 type Owner = OwnerRecord;
 
 const FILTERS: { label: string; value: OwnerFilter }[] = [
   { label: "All owners", value: "all" },
   { label: "Active", value: "active" },
-  { label: "Pending", value: "pending" },
-  { label: "Suspended", value: "suspended" },
 ];
 
 function StatCard({
@@ -175,14 +173,6 @@ export default function Owners() {
   // Owner statistics
   const totalOwners = owners.length;
 
-  const activeOwners = owners.filter(
-    (owner) => owner.status === "active",
-  ).length;
-
-  const pendingOwners = owners.filter(
-    (owner) => owner.status === "pending",
-  ).length;
-
   const totalProperties = owners.reduce(
     (total, owner) => total + owner.properties,
     0,
@@ -201,7 +191,7 @@ export default function Owners() {
     });
   }, [owners, search, filter]);
 
-  const statWidth = isWide ? "23.5%" : "48.5%";
+  const statWidth = "48.5%";
 
   return (
     <ScrollView
@@ -268,24 +258,7 @@ export default function Owners() {
               <StatCard
                 label="Total owners"
                 value={isLoading ? "..." : String(totalOwners)}
-                icon="♙"
-              />
-            </View>
-
-            <View style={{ width: statWidth }}>
-              <StatCard
-                label="Active owners"
-                value={isLoading ? "..." : String(activeOwners)}
-                icon="✓"
-              />
-            </View>
-
-            <View style={{ width: statWidth }}>
-              <StatCard
-                label="Pending approval"
-                value={isLoading ? "..." : String(pendingOwners)}
-                icon="◷"
-                accent
+                icon={"\u2659"}
               />
             </View>
 
@@ -293,7 +266,7 @@ export default function Owners() {
               <StatCard
                 label="Total properties"
                 value={isLoading ? "..." : String(totalProperties)}
-                icon="⌂"
+                icon={"\u2302"}
               />
             </View>
           </View>
@@ -326,7 +299,7 @@ export default function Owners() {
                 fontSize: 19,
               }}
             >
-              ⌕
+              {"\u2315"}
             </Text>
 
             <TextInput
@@ -507,7 +480,7 @@ export default function Owners() {
                       fontWeight: "900",
                     }}
                   >
-                    ♙
+                    {"\u2659"}
                   </Text>
                 </View>
 
